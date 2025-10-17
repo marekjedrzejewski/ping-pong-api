@@ -1,5 +1,5 @@
 [package]
-name = "ping-pong-api"
+name = "ping_pong_api"
 version = "0.1.0"
 edition = "2024"
 
