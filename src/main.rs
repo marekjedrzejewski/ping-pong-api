@@ -1,11 +1,8 @@
-use ping_pong_api::{AppState, Side, create_app};
-use std::sync::{Arc, RwLock};
+use ping_pong_api::{create_app, create_initial_state};
 
 #[tokio::main]
 async fn main() {
-    let state = AppState {
-        current_side: Arc::new(RwLock::new(Side::Ping)),
-    };
+    let state = create_initial_state();
 
     let app = create_app(state);
 
