@@ -13,21 +13,48 @@ async fn play_some_ping_pong() {
 
     let root_response = server.get("/").await;
     root_response.assert_status_ok();
-    root_response.assert_json_contains(&json!({
-        "currentSide": "ping"
+    root_response.assert_json(&json!({
+        "currentSide": "ping",
+        "overallGameState": {
+            "server": "ping",
+            "score": {
+                "ping": 0,
+                "pong": 0
+            }
+        }
     }));
 
     // can't pong if it's ping turn
     let pong_response = server.get("/pong").await;
     pong_response.assert_text("MISS");
+    server.get("/").await.assert_json_contains(&json!({
+        "overallGameState": {
+            "server": "pong",
+            "score": {
+                "ping": 1,
+                "pong": 0
+            }
+        }
+    }));
 
+    // pong now serving, it's miss again
+    let ping_response = server.get("/ping").await;
+    ping_response.assert_text("MISS");
+    server.get("/").await.assert_json_contains(&json!({
+        "overallGameState": {
+            "server": "ping",
+            "score": {
+                "ping": 1,
+                "pong": 1
+            }
+        }
+    }));
+
+    // ok, at last ping can hit some ball
     let ping_response = server.get("/ping").await;
     ping_response.assert_text("pong");
 
-    // NOT SO FAST, WAIT FOR YOUR TURN!
-    let ping_response = server.get("/ping").await;
-    ping_response.assert_text("MISS");
-
+    // same goes for pong
     let pong_response = server.get("/pong").await;
     pong_response.assert_text("ping");
 
@@ -41,4 +68,15 @@ async fn play_some_ping_pong() {
             "currentSide": "ping"
         }));
     }
+
+    // and another point goes to ping
+    let pong_response = server.get("/pong").await;
+    pong_response.assert_text("MISS");
+    server.get("/").await.assert_json_contains(&json!({
+        "overallGameState": {
+            "score": {
+                "ping": 2,
+            }
+        }
+    }));
 }

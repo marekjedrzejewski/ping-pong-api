@@ -6,7 +6,7 @@ use std::{
 use axum::{Json, Router, extract::State, http::StatusCode, routing::get};
 use serde::Serialize;
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Serialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum Side {
     Ping,
@@ -35,6 +35,15 @@ impl fmt::Display for Side {
 pub struct Score {
     pub ping: usize,
     pub pong: usize,
+}
+
+impl Score {
+    fn lose_point(&mut self, side: Side) {
+        match side {
+            Side::Ping => self.pong += 1,
+            Side::Pong => self.ping += 1,
+        }
+    }
 }
 
 #[derive(Clone, Serialize)]
@@ -71,23 +80,32 @@ pub fn create_app(state: AppState) -> Router {
 async fn get_state(State(state): State<AppState>) -> (StatusCode, Json<AppState>) {
     (StatusCode::OK, Json(state))
 }
-async fn ping(State(state): State<AppState>) -> String {
-    let mut data = state.current_side.write().expect("write lock was poisoned");
-    match *data {
-        Side::Ping => {
-            *data = (*data).flip();
-            (*data).to_string()
-        }
-        Side::Pong => "MISS".to_string(),
+
+fn try_hit(side: Side, state: AppState) -> String {
+    let mut current_side = state
+        .current_side
+        .write()
+        .expect("current_side write lock was poisoned");
+    if side == *current_side {
+        *current_side = (*current_side).flip();
+
+        (*current_side).to_string()
+    } else {
+        let mut game_state = state
+            .overall_game_state
+            .write()
+            .expect("overall_game_state lock was poisoned");
+        game_state.score.lose_point(side);
+        game_state.server = game_state.server.flip();
+        *current_side = game_state.server.clone();
+
+        "MISS".to_string()
     }
 }
+
+async fn ping(State(state): State<AppState>) -> String {
+    try_hit(Side::Ping, state)
+}
 async fn pong(State(state): State<AppState>) -> String {
-    let mut data = state.current_side.write().expect("write lock was poisoned");
-    match *data {
-        Side::Pong => {
-            *data = (*data).flip();
-            (*data).to_string()
-        }
-        Side::Ping => "MISS".to_string(),
-    }
+    try_hit(Side::Pong, state)
 }
