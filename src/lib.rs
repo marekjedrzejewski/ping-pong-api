@@ -1,12 +1,18 @@
 use std::{
     sync::{Arc, RwLock},
-    time::{Duration, SystemTime},
+    time::Duration,
 };
 
 use axum::{Json, Router, extract::State, http::StatusCode, routing::get};
 use tokio::time::interval;
 
+mod clock;
 mod models;
+
+#[cfg(test)]
+pub mod tests;
+
+use crate::clock::SystemTime;
 
 use crate::models::{AppState, GameState, RallyState, Score, Side};
 

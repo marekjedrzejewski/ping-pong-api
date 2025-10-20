@@ -1,10 +1,11 @@
 use std::{
     fmt::{self, Formatter},
     sync::{Arc, RwLock},
-    time::{SystemTime, UNIX_EPOCH},
 };
 
 use serde::{Serialize, Serializer};
+
+use crate::clock::{SystemTime, UNIX_EPOCH};
 
 #[derive(Clone, Serialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
