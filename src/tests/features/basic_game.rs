@@ -1,21 +1,19 @@
-use axum_test::TestServer;
-use ping_pong_api::{create_app, create_initial_state};
 use serde_json::json;
+
+use crate::tests::utils::setup_test_server;
 
 #[tokio::test]
 async fn play_some_ping_pong() {
-    let state = create_initial_state();
-    let app = create_app(state);
-    let server = TestServer::builder()
-        .mock_transport()
-        .build(app)
-        .expect("Cannot create server");
+    let server = setup_test_server();
 
     let root_response = server.get("/").await;
     root_response.assert_status_ok();
     root_response.assert_json(&json!({
-        "currentSide": "ping",
-        "overallGameState": {
+        "rallyState": {
+            "side": "ping",
+            "hitTimeoutTimestamp": null
+        },
+        "gameState": {
             "server": "ping",
             "score": {
                 "ping": 0,
@@ -28,7 +26,7 @@ async fn play_some_ping_pong() {
     let pong_response = server.get("/pong").await;
     pong_response.assert_text("MISS");
     server.get("/").await.assert_json_contains(&json!({
-        "overallGameState": {
+        "gameState": {
             "server": "pong",
             "score": {
                 "ping": 1,
@@ -41,7 +39,7 @@ async fn play_some_ping_pong() {
     let ping_response = server.get("/ping").await;
     ping_response.assert_text("MISS");
     server.get("/").await.assert_json_contains(&json!({
-        "overallGameState": {
+        "gameState": {
             "server": "ping",
             "score": {
                 "ping": 1,
@@ -61,19 +59,27 @@ async fn play_some_ping_pong() {
     for _n in 0..50 {
         server.get("/ping").await.assert_text("pong");
         server.get("/").await.assert_json_contains(&json!({
-            "currentSide": "pong"
+            "rallyState": { "side": "pong" }
         }));
         server.get("/pong").await.assert_text("ping");
         server.get("/").await.assert_json_contains(&json!({
-            "currentSide": "ping"
+            "rallyState": { "side": "ping" }
         }));
     }
+
+    // timestamp should be present while rally is in progress
+    let root_response: serde_json::Value = server.get("/").await.json();
+    assert!(!root_response.as_object().unwrap()["rallyState"]["hitTimeoutTimestamp"].is_null());
 
     // and another point goes to ping
     let pong_response = server.get("/pong").await;
     pong_response.assert_text("MISS");
     server.get("/").await.assert_json_contains(&json!({
-        "overallGameState": {
+        "rallyState": {
+            // timestamp should be reset on miss
+            "hitTimeoutTimestamp": null
+        },
+        "gameState": {
             "score": {
                 "ping": 2,
             }
