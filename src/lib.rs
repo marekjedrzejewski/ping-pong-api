@@ -16,7 +16,7 @@ use crate::clock::SystemTime;
 
 use crate::models::{AppState, GameState, RallyState, Score, Side};
 
-const BALL_AIR_TIME_SECONDS: u64 = 30;
+pub const BALL_AIR_TIME_SECONDS: u64 = 30;
 const GAME_LOOP_INTERVAL_MS: u64 = 1000;
 
 pub fn create_initial_state() -> AppState {
