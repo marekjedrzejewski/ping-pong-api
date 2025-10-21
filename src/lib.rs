@@ -50,7 +50,7 @@ async fn run_game_events(state: AppState) {
         if let Some(t) = hit_timeout
             && t < SystemTime::now()
         {
-            lose_point(side, &state);
+            state.lose_point(side);
         }
     }
 }
@@ -66,21 +66,6 @@ pub fn create_app(state: AppState) -> Router {
 
 async fn get_state(State(state): State<AppState>) -> (StatusCode, Json<AppState>) {
     (StatusCode::OK, Json(state))
-}
-
-fn lose_point(side: Side, state: &AppState) {
-    let mut game_state = state
-        .game_state
-        .write()
-        .expect("game_state write lock was poisoned");
-    let mut rally_state = state
-        .rally_state
-        .write()
-        .expect("game_state write lock was poisoned");
-    game_state.score.lose_point(side);
-    game_state.server = game_state.server.flip();
-    rally_state.side = game_state.server.clone();
-    rally_state.hit_timeout = None;
 }
 
 fn try_hit(side: Side, state: AppState) -> String {
@@ -101,7 +86,7 @@ fn try_hit(side: Side, state: AppState) -> String {
             Some(SystemTime::now() + Duration::from_secs(BALL_AIR_TIME_SECONDS));
         (rally_state.side).to_string()
     } else {
-        lose_point(side, &state);
+        state.lose_point(side);
 
         "MISS".to_string()
     }

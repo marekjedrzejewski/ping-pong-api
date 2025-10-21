@@ -71,6 +71,23 @@ pub struct AppState {
     pub game_state: Arc<RwLock<GameState>>,
 }
 
+impl AppState {
+    pub fn lose_point(self: &AppState, side: Side) {
+        let mut game_state = self
+            .game_state
+            .write()
+            .expect("game_state write lock was poisoned");
+        let mut rally_state = self
+            .rally_state
+            .write()
+            .expect("rally_state write lock was poisoned");
+        game_state.score.lose_point(side);
+        game_state.server = game_state.server.flip();
+        rally_state.side = game_state.server.clone();
+        rally_state.hit_timeout = None;
+    }
+}
+
 fn unix_millis_serializer<S>(time: &Option<SystemTime>, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
