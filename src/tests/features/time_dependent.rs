@@ -1,14 +1,9 @@
-//! Time mocked tests need to be within src/ to rely on #[cfg(test)] in clock.rs
-//! Otherwise, clock.rs would always use std::time even in tests as whatever lies outside
-//! of src/ is linked against the crate compiled without the test flag.
-
 use mock_instant::global::MockClock;
 use serde_json::json;
 use std::time::Duration;
 
 use crate::BALL_AIR_TIME_SECONDS;
-
-use super::utils::setup_test_server;
+use crate::tests::utils::setup_test_server;
 
 async fn advance_time(duration: Duration) {
     tokio::time::pause();

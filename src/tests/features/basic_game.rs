@@ -1,21 +1,6 @@
-// COPY-PASTE of src/tests/utils/setup_test_server
-// with imports adjusted. This was needed to avoid having
-// dev dependencies exposed outside of tests.
-use axum_test::TestServer;
-
-use ping_pong_api::{create_app, create_initial_state};
-
-pub fn setup_test_server() -> TestServer {
-    let state = create_initial_state();
-    let app = create_app(state);
-    TestServer::builder()
-        .mock_transport()
-        .build(app)
-        .expect("Cannot create server")
-}
-// END OF COPY-PASTE
-
 use serde_json::json;
+
+use crate::tests::utils::setup_test_server;
 
 #[tokio::test]
 async fn play_some_ping_pong() {
