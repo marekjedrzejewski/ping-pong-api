@@ -1,7 +1,6 @@
 use std::{
     fmt::{self, Formatter},
     sync::{Arc, RwLock},
-    time::Duration,
 };
 
 use serde::{Serialize, Serializer};
@@ -57,16 +56,12 @@ pub struct RallyState {
         rename = "hitTimeoutTimestamp"
     )]
     pub hit_timeout: Option<SystemTime>,
-    #[serde(serialize_with = "unix_millis_serializer", rename = "serveTimestamp")]
-    pub first_hit_at: Option<SystemTime>,
 }
 
 #[derive(Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
 pub struct GameState {
     pub server: Side,
     pub score: Score,
-    pub longest_rally: Option<Duration>,
 }
 
 #[derive(Clone, Serialize)]
@@ -89,25 +84,7 @@ impl AppState {
         game_state.score.lose_point(side);
         game_state.server = game_state.server.flip();
         rally_state.side = game_state.server.clone();
-
-        if let Some(start) = rally_state.first_hit_at {
-            let current_rally_time_duration_result = SystemTime::now().duration_since(start);
-
-            match current_rally_time_duration_result {
-                Ok(current_rally_time) => {
-                    let longest_rally = game_state.longest_rally.unwrap_or(Duration::ZERO);
-                    if current_rally_time > longest_rally {
-                        game_state.longest_rally = Some(current_rally_time);
-                    }
-                }
-                Err(error) => {
-                    eprintln!("Error calculating rally duration: {}", error);
-                }
-            }
-        }
-
         rally_state.hit_timeout = None;
-        rally_state.first_hit_at = None;
     }
 }
 

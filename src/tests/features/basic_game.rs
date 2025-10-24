@@ -11,16 +11,14 @@ async fn play_some_ping_pong() {
     root_response.assert_json(&json!({
         "rallyState": {
             "side": "ping",
-            "hitTimeoutTimestamp": null,
-            "serveTimestamp": null,
+            "hitTimeoutTimestamp": null
         },
         "gameState": {
             "server": "ping",
             "score": {
                 "ping": 0,
                 "pong": 0
-            },
-            "longestRally": null,
+            }
         }
     }));
 
