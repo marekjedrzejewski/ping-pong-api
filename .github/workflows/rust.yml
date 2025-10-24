@@ -25,3 +25,4 @@ jobs:
     - uses: giraffate/clippy-action@v1
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
+        clippy_flags: -- -Dwarnings
