@@ -24,5 +24,4 @@ jobs:
       run: cargo test --verbose
     - uses: giraffate/clippy-action@v1
       with:
-        reporter: 'clippy'
         github_token: ${{ secrets.GITHUB_TOKEN }}
