@@ -24,10 +24,12 @@ pub fn create_initial_state() -> AppState {
         rally_state: Arc::new(RwLock::new(RallyState {
             side: Side::Ping,
             hit_timeout: None,
+            first_hit_at: None,
         })),
         game_state: Arc::new(RwLock::new(GameState {
             server: Side::Ping,
             score: Score { ping: 0, pong: 0 },
+            longest_rally: None,
         })),
     }
 }
@@ -84,6 +86,10 @@ fn try_hit(side: Side, state: AppState) -> String {
         rally_state.side = (rally_state.side).flip();
         rally_state.hit_timeout =
             Some(SystemTime::now() + Duration::from_secs(BALL_AIR_TIME_SECONDS));
+        rally_state
+            .first_hit_at
+            .get_or_insert_with(|| SystemTime::now());
+
         (rally_state.side).to_string()
     } else {
         state.lose_point(side);
