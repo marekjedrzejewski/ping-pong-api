@@ -41,7 +41,7 @@ pub struct Score {
 }
 
 impl Score {
-    pub fn lose_point(&mut self, side: Side) {
+    pub fn lose_point(&mut self, side: &Side) {
         match side {
             Side::Ping => self.pong += 1,
             Side::Pong => self.ping += 1,
@@ -78,7 +78,7 @@ pub struct AppState {
 }
 
 impl AppState {
-    pub fn lose_point(self: &AppState, side: Side) {
+    pub fn lose_point(self: &AppState, side: &Side) {
         let mut game_state = self
             .game_state
             .write()
