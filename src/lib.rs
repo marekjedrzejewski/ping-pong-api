@@ -52,7 +52,7 @@ async fn get_state(State(state): State<AppState>) -> (StatusCode, Json<AppState>
     (StatusCode::OK, Json(state))
 }
 
-fn try_hit(side: Side, state: AppState) -> String {
+fn try_hit(side: Side, state: AppState) -> bool {
     let state_side = state
         .rally_state
         .read()
@@ -68,21 +68,26 @@ fn try_hit(side: Side, state: AppState) -> String {
         rally_state.side = (rally_state.side).flip();
         rally_state.hit_timeout =
             Some(SystemTime::now() + Duration::from_secs(BALL_AIR_TIME_SECONDS));
-        rally_state
-            .first_hit_at
-            .get_or_insert_with(|| SystemTime::now());
+        rally_state.first_hit_at.get_or_insert_with(SystemTime::now);
 
-        (rally_state.side).to_string()
+        true
     } else {
         state.lose_point(side);
 
-        "MISS".to_string()
+        false
     }
 }
 
-async fn ping(State(state): State<AppState>) -> String {
-    try_hit(Side::Ping, state)
+fn get_hit_response(side: Side, state: AppState) -> (StatusCode, String) {
+    match try_hit(side, state) {
+        true => (StatusCode::OK, side.flip().to_string()),
+        false => (StatusCode::CONFLICT, "MISS".to_string()),
+    }
 }
-async fn pong(State(state): State<AppState>) -> String {
-    try_hit(Side::Pong, state)
+
+async fn ping(State(state): State<AppState>) -> (StatusCode, String) {
+    get_hit_response(Side::Ping, state)
+}
+async fn pong(State(state): State<AppState>) -> (StatusCode, String) {
+    get_hit_response(Side::Pong, state)
 }
