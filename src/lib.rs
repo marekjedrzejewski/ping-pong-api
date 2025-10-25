@@ -1,38 +1,20 @@
-use std::{
-    sync::{Arc, RwLock},
-    time::Duration,
-};
+use std::time::Duration;
 
 use axum::{Json, Router, extract::State, http::StatusCode, routing::get};
 use tokio::time::interval;
 
 mod clock;
-mod models;
+pub mod models;
 
 #[cfg(test)]
 pub mod tests;
 
 use crate::clock::SystemTime;
 
-use crate::models::{AppState, GameState, RallyState, Score, Side};
+use crate::models::{AppState, Side};
 
 pub const BALL_AIR_TIME_SECONDS: u64 = 30;
 const GAME_LOOP_INTERVAL_MS: u64 = 1000;
-
-pub fn create_initial_state() -> AppState {
-    AppState {
-        rally_state: Arc::new(RwLock::new(RallyState {
-            side: Side::Ping,
-            hit_timeout: None,
-            first_hit_at: None,
-        })),
-        game_state: Arc::new(RwLock::new(GameState {
-            server: Side::Ping,
-            score: Score { ping: 0, pong: 0 },
-            longest_rally: None,
-        })),
-    }
-}
 
 async fn run_game_events(state: AppState) {
     let mut interval = interval(Duration::from_millis(GAME_LOOP_INTERVAL_MS));

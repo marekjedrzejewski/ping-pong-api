@@ -1,8 +1,8 @@
-use ping_pong_api::{create_app, create_initial_state};
+use ping_pong_api::{create_app, models::AppState};
 
 #[tokio::main]
 async fn main() {
-    let state = create_initial_state();
+    let state = AppState::default();
 
     let app = create_app(state);
 

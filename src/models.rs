@@ -8,9 +8,10 @@ use serde::{Serialize, Serializer};
 
 use crate::clock::{SystemTime, UNIX_EPOCH};
 
-#[derive(Clone, Serialize, PartialEq)]
+#[derive(Clone, Serialize, PartialEq, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum Side {
+    #[default]
     Ping,
     Pong,
 }
@@ -33,7 +34,7 @@ impl fmt::Display for Side {
     }
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Serialize, Default)]
 pub struct Score {
     pub ping: usize,
     pub pong: usize,
@@ -48,7 +49,7 @@ impl Score {
     }
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Serialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct RallyState {
     pub side: Side,
@@ -61,7 +62,7 @@ pub struct RallyState {
     pub first_hit_at: Option<SystemTime>,
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Serialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct GameState {
     pub server: Side,
@@ -69,7 +70,7 @@ pub struct GameState {
     pub longest_rally: Option<Duration>,
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Serialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AppState {
     pub rally_state: Arc<RwLock<RallyState>>,
