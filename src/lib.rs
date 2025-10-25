@@ -34,7 +34,7 @@ async fn run_game_events(state: AppState) {
         if let Some(t) = hit_timeout
             && t < SystemTime::now()
         {
-            state.lose_point(&side);
+            state.lose_point(side);
         }
     }
 }
@@ -52,13 +52,13 @@ async fn get_state(State(state): State<AppState>) -> (StatusCode, Json<AppState>
     (StatusCode::OK, Json(state))
 }
 
-fn try_hit(side: &Side, state: AppState) -> String {
-    let state_side = &state
+fn try_hit(side: Side, state: AppState) -> String {
+    let state_side = state
         .rally_state
         .read()
         .expect("rally_state read lock was poisoned")
-        .side;
-
+        .side
+        .clone();
     if side == state_side {
         let mut rally_state = state
             .rally_state
@@ -81,8 +81,8 @@ fn try_hit(side: &Side, state: AppState) -> String {
 }
 
 async fn ping(State(state): State<AppState>) -> String {
-    try_hit(&Side::Ping, state)
+    try_hit(Side::Ping, state)
 }
 async fn pong(State(state): State<AppState>) -> String {
-    try_hit(&Side::Pong, state)
+    try_hit(Side::Pong, state)
 }
