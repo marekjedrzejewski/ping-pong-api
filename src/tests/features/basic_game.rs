@@ -13,6 +13,7 @@ async fn play_some_ping_pong() {
             "side": "ping",
             "hitTimeoutTimestamp": null,
             "serveTimestamp": null,
+            "hitCount": 0,
         },
         "gameState": {
             "server": "ping",

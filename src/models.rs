@@ -60,6 +60,13 @@ pub struct RallyState {
     pub hit_timeout: Option<SystemTime>,
     #[serde(serialize_with = "unix_millis_serializer", rename = "serveTimestamp")]
     pub first_hit_at: Option<SystemTime>,
+    pub hit_count: usize,
+}
+
+#[derive(Clone, Serialize)]
+pub struct RallyStatistics {
+    hit_count: usize,
+    duration: Duration,
 }
 
 #[derive(Clone, Serialize, Default)]
@@ -67,7 +74,7 @@ pub struct RallyState {
 pub struct GameState {
     pub server: Side,
     pub score: Score,
-    pub longest_rally: Option<Duration>,
+    pub longest_rally: Option<RallyStatistics>,
 }
 
 #[derive(Clone, Serialize, Default)]
@@ -91,24 +98,42 @@ impl AppState {
         game_state.server = game_state.server.flip();
         rally_state.side = game_state.server;
 
-        if let Some(start) = rally_state.first_hit_at {
-            let current_rally_time_duration_result = SystemTime::now().duration_since(start);
-
-            match current_rally_time_duration_result {
-                Ok(current_rally_time) => {
-                    let longest_rally = game_state.longest_rally.unwrap_or(Duration::ZERO);
-                    if current_rally_time > longest_rally {
-                        game_state.longest_rally = Some(current_rally_time);
-                    }
-                }
-                Err(error) => {
-                    eprintln!("Error calculating rally duration: {}", error);
-                }
-            }
-        }
+        update_statistics(game_state, &rally_state);
 
         rally_state.hit_timeout = None;
         rally_state.first_hit_at = None;
+        rally_state.hit_count = 0;
+    }
+}
+
+/// Updates longest rally - hit count based.
+///
+/// Duration only saved as a bonus - you can have more hits with shorter duration
+/// and it will overwrite previous, longer one.
+fn update_statistics(
+    mut game_state: std::sync::RwLockWriteGuard<'_, GameState>,
+    rally_state: &std::sync::RwLockWriteGuard<'_, RallyState>,
+) {
+    if let Some(start) = rally_state.first_hit_at
+        && let Some(current_rally_time) = SystemTime::now()
+            .duration_since(start)
+            .inspect_err(|error| eprintln!("Error calculating rally duration: {}", error))
+            .ok()
+    {
+        match &mut game_state.longest_rally {
+            None => {
+                game_state.longest_rally = Some(RallyStatistics {
+                    hit_count: rally_state.hit_count,
+                    duration: current_rally_time,
+                })
+            }
+            Some(longest_rally) => {
+                if longest_rally.hit_count < rally_state.hit_count {
+                    longest_rally.duration = current_rally_time;
+                    longest_rally.hit_count = rally_state.hit_count
+                }
+            }
+        }
     }
 }
 

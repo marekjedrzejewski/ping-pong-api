@@ -66,6 +66,7 @@ fn try_hit(side: Side, state: AppState) -> bool {
             .expect("rally_state write lock was poisoned");
 
         rally_state.side = (rally_state.side).flip();
+        rally_state.hit_count += 1;
         rally_state.hit_timeout =
             Some(SystemTime::now() + Duration::from_secs(BALL_AIR_TIME_SECONDS));
         rally_state.first_hit_at.get_or_insert_with(SystemTime::now);
