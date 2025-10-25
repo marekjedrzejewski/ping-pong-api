@@ -8,7 +8,7 @@ use serde::{Serialize, Serializer};
 
 use crate::clock::{SystemTime, UNIX_EPOCH};
 
-#[derive(Clone, Serialize, PartialEq, Default)]
+#[derive(Clone, Copy, Serialize, PartialEq, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum Side {
     #[default]
@@ -89,7 +89,7 @@ impl AppState {
             .expect("rally_state write lock was poisoned");
         game_state.score.lose_point(side);
         game_state.server = game_state.server.flip();
-        rally_state.side = game_state.server.clone();
+        rally_state.side = game_state.server;
 
         if let Some(start) = rally_state.first_hit_at {
             let current_rally_time_duration_result = SystemTime::now().duration_since(start);

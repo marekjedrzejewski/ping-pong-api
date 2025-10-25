@@ -28,7 +28,7 @@ async fn run_game_events(state: AppState) {
                 .read()
                 .expect("rally_state read lock was poisoned");
 
-            (rally_state.side.clone(), rally_state.hit_timeout)
+            (rally_state.side, rally_state.hit_timeout)
         };
 
         if let Some(t) = hit_timeout
@@ -57,8 +57,8 @@ fn try_hit(side: Side, state: AppState) -> String {
         .rally_state
         .read()
         .expect("rally_state read lock was poisoned")
-        .side
-        .clone();
+        .side;
+
     if side == state_side {
         let mut rally_state = state
             .rally_state
