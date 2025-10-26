@@ -12,7 +12,6 @@ pub fn setup_test_server() -> TestServer {
 }
 
 pub mod mock_clock {
-
     use std::{
         sync::{Arc, Mutex},
         time::Duration,
@@ -26,7 +25,6 @@ pub mod mock_clock {
         pub static TEST_CLOCK: MockClock = MockClock::new(Timestamp::now());
     }
 
-    /// Internal struct that holds the mock time.
     #[derive(Clone)]
     pub struct MockClock {
         time: Arc<Mutex<Timestamp>>,

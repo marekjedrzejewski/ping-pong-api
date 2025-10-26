@@ -61,6 +61,7 @@ pub struct RallyState {
 }
 
 #[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RallyStatistics {
     hit_count: usize,
     duration: SignedDuration,

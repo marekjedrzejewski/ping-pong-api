@@ -85,6 +85,9 @@ async fn play_some_ping_pong() {
         "gameState": {
             "score": {
                 "ping": 2,
+            },
+            "longestRally": {
+                "hitCount": 102
             }
         }
     }));
