@@ -1,3 +1,4 @@
+use axum::http::StatusCode;
 use serde_json::json;
 
 use crate::tests::utils::setup_test_server;
@@ -27,6 +28,7 @@ async fn play_some_ping_pong() {
 
     // can't pong if it's ping turn
     let pong_response = server.get("/pong").await;
+    pong_response.assert_status(StatusCode::CONFLICT);
     pong_response.assert_text("MISS");
     server.get("/").await.assert_json_contains(&json!({
         "gameState": {
@@ -40,6 +42,7 @@ async fn play_some_ping_pong() {
 
     // pong now serving, it's miss again
     let ping_response = server.get("/ping").await;
+    pong_response.assert_status(StatusCode::CONFLICT);
     ping_response.assert_text("MISS");
     server.get("/").await.assert_json_contains(&json!({
         "gameState": {
