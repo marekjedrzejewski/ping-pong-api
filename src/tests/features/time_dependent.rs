@@ -1,13 +1,13 @@
-use mock_instant::global::MockClock;
 use serde_json::json;
 use std::time::Duration;
 
 use crate::BALL_AIR_TIME_SECONDS;
+use crate::tests::utils::mock_clock;
 use crate::tests::utils::setup_test_server;
 
 async fn advance_time(duration: Duration) {
     tokio::time::pause();
-    MockClock::advance_system_time(duration);
+    mock_clock::advance(duration);
     tokio::time::advance(duration).await;
     tokio::time::resume();
     // give some time for the game loop to process the time advancement

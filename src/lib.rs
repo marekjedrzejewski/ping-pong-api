@@ -3,13 +3,11 @@ use std::time::Duration;
 use axum::{Json, Router, extract::State, http::StatusCode, routing::get};
 use tokio::time::interval;
 
-mod clock;
+pub mod clock;
 pub mod models;
 
 #[cfg(test)]
 pub mod tests;
-
-use crate::clock::SystemTime;
 
 use crate::models::{AppState, Side};
 
@@ -32,7 +30,7 @@ async fn run_game_events(state: AppState) {
         };
 
         if let Some(t) = hit_timeout
-            && t < SystemTime::now()
+            && t < clock::now()
         {
             state.lose_point(side);
         }
@@ -67,9 +65,8 @@ fn try_hit(side: Side, state: AppState) -> bool {
 
         rally_state.side = (rally_state.side).flip();
         rally_state.hit_count += 1;
-        rally_state.hit_timeout =
-            Some(SystemTime::now() + Duration::from_secs(BALL_AIR_TIME_SECONDS));
-        rally_state.first_hit_at.get_or_insert_with(SystemTime::now);
+        rally_state.hit_timeout = Some(clock::now() + Duration::from_secs(BALL_AIR_TIME_SECONDS));
+        rally_state.first_hit_at.get_or_insert_with(clock::now);
 
         true
     } else {

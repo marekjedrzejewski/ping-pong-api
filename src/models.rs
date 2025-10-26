@@ -1,12 +1,12 @@
 use std::{
     fmt::{self, Formatter},
     sync::{Arc, RwLock},
-    time::Duration,
 };
 
-use serde::{Serialize, Serializer};
+use jiff::{SignedDuration, Timestamp};
+use serde::Serialize;
 
-use crate::clock::{SystemTime, UNIX_EPOCH};
+use crate::clock;
 
 #[derive(Clone, Copy, Serialize, PartialEq, Default)]
 #[serde(rename_all = "lowercase")]
@@ -53,20 +53,17 @@ impl Score {
 #[serde(rename_all = "camelCase")]
 pub struct RallyState {
     pub side: Side,
-    #[serde(
-        serialize_with = "unix_millis_serializer",
-        rename = "hitTimeoutTimestamp"
-    )]
-    pub hit_timeout: Option<SystemTime>,
-    #[serde(serialize_with = "unix_millis_serializer", rename = "serveTimestamp")]
-    pub first_hit_at: Option<SystemTime>,
+    #[serde(rename = "hitTimeoutTimestamp")]
+    pub hit_timeout: Option<Timestamp>,
+    #[serde(rename = "serveTimestamp")]
+    pub first_hit_at: Option<Timestamp>,
     pub hit_count: usize,
 }
 
 #[derive(Clone, Serialize)]
 pub struct RallyStatistics {
     hit_count: usize,
-    duration: Duration,
+    duration: SignedDuration,
 }
 
 #[derive(Clone, Serialize, Default)]
@@ -114,12 +111,8 @@ fn update_statistics(
     mut game_state: std::sync::RwLockWriteGuard<'_, GameState>,
     rally_state: &std::sync::RwLockWriteGuard<'_, RallyState>,
 ) {
-    if let Some(start) = rally_state.first_hit_at
-        && let Some(current_rally_time) = SystemTime::now()
-            .duration_since(start)
-            .inspect_err(|error| eprintln!("Error calculating rally duration: {}", error))
-            .ok()
-    {
+    if let Some(start) = rally_state.first_hit_at {
+        let current_rally_time = clock::now().duration_since(start);
         match &mut game_state.longest_rally {
             None => {
                 game_state.longest_rally = Some(RallyStatistics {
@@ -132,17 +125,8 @@ fn update_statistics(
                     longest_rally.duration = current_rally_time;
                     longest_rally.hit_count = rally_state.hit_count
                 }
+                // TODO: same hit count, but longer duration should still update duration
             }
         }
-    }
-}
-
-fn unix_millis_serializer<S>(time: &Option<SystemTime>, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    match time {
-        Some(t) => serializer.serialize_some(&t.duration_since(UNIX_EPOCH).unwrap().as_millis()),
-        None => serializer.serialize_none(),
     }
 }
