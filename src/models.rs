@@ -124,8 +124,11 @@ fn update_statistics(
                 if longest_rally.hit_count < rally_state.hit_count {
                     longest_rally.duration = current_rally_time;
                     longest_rally.hit_count = rally_state.hit_count
+                } else if longest_rally.hit_count == rally_state.hit_count
+                    && longest_rally.duration < current_rally_time
+                {
+                    longest_rally.duration = current_rally_time
                 }
-                // TODO: same hit count, but longer duration should still update duration
             }
         }
     }
