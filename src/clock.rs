@@ -1,7 +1,13 @@
-//! Clock abstraction allowing mocking time in tests.
+use jiff::Timestamp;
 
-#[cfg(test)]
-pub use mock_instant::global::{SystemTime, UNIX_EPOCH};
-
-#[cfg(not(test))]
-pub use std::time::{SystemTime, UNIX_EPOCH};
+pub fn now() -> Timestamp {
+    #[cfg(test)]
+    {
+        use crate::tests::utils::mock_clock::TEST_CLOCK;
+        TEST_CLOCK.with(|clock| clock.current())
+    }
+    #[cfg(not(test))]
+    {
+        Timestamp::now()
+    }
+}
