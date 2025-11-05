@@ -1,6 +1,10 @@
-use std::time::Duration;
+use std::{
+    sync::{Arc, RwLock},
+    time::Duration,
+};
 
 use axum::{Json, Router, extract::State, http::StatusCode, routing::get};
+use sqlx::PgPool;
 use tokio::time::interval;
 
 pub mod clock;
@@ -9,7 +13,7 @@ pub mod models;
 #[cfg(test)]
 pub mod tests;
 
-use crate::models::{AppState, Side};
+use crate::models::{AppState, GameState, Side};
 
 pub const BALL_AIR_TIME_SECONDS: u64 = 30;
 const GAME_LOOP_INTERVAL_MS: u64 = 1000;
@@ -37,7 +41,28 @@ async fn run_game_events(state: AppState) {
     }
 }
 
-pub fn create_app(state: AppState) -> Router {
+async fn init_state(pool: &PgPool) -> AppState {
+    let game_state: Option<(serde_json::Value,)> =
+        sqlx::query_as("SELECT data_dump FROM game_state ORDER BY id DESC LIMIT 1")
+            .fetch_optional(pool)
+            .await
+            .expect("Error while fetching state from database");
+
+    let game_state = match game_state {
+        Some((data_dump,)) => {
+            serde_json::from_value(data_dump).expect("Failed to deserialize game state from db")
+        }
+        None => GameState::default(),
+    };
+
+    AppState {
+        game_state: Arc::new(RwLock::new(game_state)),
+        ..Default::default()
+    }
+}
+
+pub async fn create_app(pool: PgPool) -> Router {
+    let state = init_state(&pool).await;
     tokio::spawn(run_game_events(state.clone()));
     Router::new()
         .route("/", get(get_state))

@@ -4,11 +4,11 @@ use std::{
 };
 
 use jiff::{SignedDuration, Timestamp};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::clock;
 
-#[derive(Clone, Copy, Serialize, PartialEq, Default)]
+#[derive(Clone, Copy, Serialize, Deserialize, PartialEq, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum Side {
     #[default]
@@ -34,7 +34,7 @@ impl fmt::Display for Side {
     }
 }
 
-#[derive(Clone, Serialize, Default)]
+#[derive(Clone, Serialize, Deserialize, Default)]
 pub struct Score {
     pub ping: usize,
     pub pong: usize,
@@ -60,14 +60,14 @@ pub struct RallyState {
     pub hit_count: usize,
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RallyStatistics {
     hit_count: usize,
     duration: SignedDuration,
 }
 
-#[derive(Clone, Serialize, Default)]
+#[derive(Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct GameState {
     pub server: Side,

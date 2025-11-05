@@ -1,4 +1,4 @@
-use ping_pong_api::{create_app, models::AppState};
+use ping_pong_api::create_app;
 use sqlx::postgres::PgPoolOptions;
 use std::env;
 
@@ -11,15 +11,12 @@ async fn main() {
         .await
         .expect("Can't connect to database");
 
-    let row: (String,) = sqlx::query_as("SELECT 'it works'")
-        .fetch_one(&pool)
+    sqlx::migrate!()
+        .run(&pool)
         .await
-        .expect("YOU BROKE THE QUERY");
-    dbg!(row);
+        .expect("Migrations failed");
 
-    let state = AppState::default();
-
-    let app = create_app(state);
+    let app = create_app(pool).await;
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
     axum::serve(listener, app).await.unwrap();
