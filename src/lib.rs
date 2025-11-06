@@ -63,6 +63,10 @@ async fn init_state(pool: &PgPool) -> AppState {
 
 pub async fn create_app(pool: PgPool) -> Router {
     let state = init_state(&pool).await;
+    create_app_from_state(state)
+}
+
+pub fn create_app_from_state(state: AppState) -> Router {
     tokio::spawn(run_game_events(state.clone()));
     Router::new()
         .route("/", get(get_state))
