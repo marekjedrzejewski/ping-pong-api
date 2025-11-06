@@ -1,3 +1,4 @@
+use log::info;
 use sqlx::{PgPool, migrate::MigrateError, postgres::PgPoolOptions};
 use std::{
     env::{self, VarError},
@@ -6,14 +7,20 @@ use std::{
 };
 
 pub async fn init_db() -> Result<PgPool, DbError> {
+    info!("Starting database initialization");
+    info!("Getting DATABASE_URL env variable");
     let db_url = env::var("DATABASE_URL")?;
+
+    info!("Connecting to the database");
     let pool = PgPoolOptions::new()
         .max_connections(5)
         .connect(&db_url)
         .await?;
 
+    info!("Running migrations");
     sqlx::migrate!().run(&pool).await?;
 
+    info!("Database initialized");
     Ok(pool)
 }
 

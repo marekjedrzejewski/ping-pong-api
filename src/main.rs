@@ -1,3 +1,7 @@
+use std::process::exit;
+
+use log::error;
+
 use ping_pong_api::create_app;
 
 mod database;
@@ -5,6 +9,7 @@ use database::init_db;
 
 #[tokio::main]
 async fn main() {
+    env_logger::init();
     let pool = init_db().await;
 
     match pool {
@@ -14,7 +19,8 @@ async fn main() {
             axum::serve(listener, app).await.unwrap();
         }
         Err(e) => {
-            panic!("{e}")
+            error!("Database initialization failed with error: {e}");
+            exit(1);
         }
     }
 }
