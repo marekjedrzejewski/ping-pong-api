@@ -1,13 +1,16 @@
 use std::{
+    process::exit,
     sync::{Arc, RwLock},
     time::Duration,
 };
 
 use axum::{Json, Router, extract::State, http::StatusCode, routing::get};
+use log::error;
 use sqlx::PgPool;
 use tokio::time::interval;
 
 pub mod clock;
+pub mod database;
 pub mod models;
 
 #[cfg(test)]
@@ -42,21 +45,19 @@ async fn run_game_events(state: AppState) {
 }
 
 async fn init_state(pool: &PgPool) -> AppState {
-    let game_state: Option<(serde_json::Value,)> =
-        sqlx::query_as("SELECT data_dump FROM game_state ORDER BY id DESC LIMIT 1")
-            .fetch_optional(pool)
-            .await
-            .expect("Error while fetching state from database");
+    let game_state = database::get_game_state(pool).await;
 
-    let game_state = match game_state {
-        Some((data_dump,)) => {
-            serde_json::from_value(data_dump).expect("Failed to deserialize game state from db")
+    let game_state: GameState = match game_state {
+        Ok(state) => state.unwrap_or_default(),
+        Err(e) => {
+            error!("Failed to get initial game state from database: {e}");
+            exit(1)
         }
-        None => GameState::default(),
     };
 
     AppState {
         game_state: Arc::new(RwLock::new(game_state)),
+        db_pool: Some((*pool).clone()),
         ..Default::default()
     }
 }

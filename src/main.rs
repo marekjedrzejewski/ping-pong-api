@@ -4,8 +4,7 @@ use log::error;
 
 use ping_pong_api::create_app;
 
-mod database;
-use database::init_db;
+use ping_pong_api::database::init_db;
 
 #[tokio::main]
 async fn main() {

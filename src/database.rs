@@ -1,5 +1,6 @@
+use crate::models::GameState;
 use log::info;
-use sqlx::{PgPool, migrate::MigrateError, postgres::PgPoolOptions};
+use sqlx::{Error as SqlxError, PgPool, migrate::MigrateError, postgres::PgPoolOptions};
 use std::{
     env::{self, VarError},
     error::Error,
@@ -22,6 +23,38 @@ pub async fn init_db() -> Result<PgPool, DbError> {
 
     info!("Database initialized");
     Ok(pool)
+}
+
+pub async fn get_game_state(pool: &PgPool) -> Result<Option<GameState>, SqlxError> {
+    let game_state_row = sqlx::query!("SELECT data_dump FROM game_state ORDER BY id DESC LIMIT 1")
+        .fetch_optional(pool)
+        .await?;
+
+    match game_state_row {
+        Some(row) => {
+            serde_json::from_value(row.data_dump).map_err(|e| SqlxError::Decode(Box::new(e)))
+        }
+        None => Ok(None),
+    }
+}
+
+pub async fn upsert_game_state(pool: PgPool, game_state: GameState) -> Result<(), sqlx::Error> {
+    let data_dump = serde_json::to_value(game_state).map_err(|e| SqlxError::Encode(Box::new(e)))?;
+
+    let mut tx = pool.begin().await?;
+
+    // We currently only care about single game state, hence clearing everything
+    sqlx::query!("DELETE FROM game_state")
+        .execute(&mut *tx)
+        .await?;
+
+    sqlx::query!("INSERT INTO game_state (data_dump) VALUES ($1)", data_dump)
+        .execute(&mut *tx)
+        .await?;
+
+    tx.commit().await?;
+
+    Ok(())
 }
 
 #[derive(Debug)]

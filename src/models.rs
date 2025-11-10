@@ -4,9 +4,12 @@ use std::{
 };
 
 use jiff::{SignedDuration, Timestamp};
+use log::error;
 use serde::{Deserialize, Serialize};
+use sqlx::PgPool;
 
 use crate::clock;
+use crate::database;
 
 #[derive(Clone, Copy, Serialize, Deserialize, PartialEq, Default)]
 #[serde(rename_all = "lowercase")]
@@ -80,6 +83,8 @@ pub struct GameState {
 pub struct AppState {
     pub rally_state: Arc<RwLock<RallyState>>,
     pub game_state: Arc<RwLock<GameState>>,
+    #[serde(skip_serializing)]
+    pub db_pool: Option<PgPool>,
 }
 
 impl AppState {
@@ -96,11 +101,22 @@ impl AppState {
         game_state.server = game_state.server.flip();
         rally_state.side = game_state.server;
 
-        update_statistics(game_state, &rally_state);
+        update_statistics(&mut game_state, &rally_state);
 
         rally_state.hit_timeout = None;
         rally_state.first_hit_at = None;
         rally_state.hit_count = 0;
+
+        // TODO: 'lose point' might not be only place where we'd want to update db state.
+        // In that case, remember to decouple it.
+        let state_to_save = game_state.clone();
+        if let Some(pool) = self.db_pool.clone() {
+            tokio::spawn(async move {
+                if let Err(e) = database::upsert_game_state(pool, state_to_save).await {
+                    error!("Error while updating game state in database: {e}")
+                }
+            });
+        }
     }
 }
 
@@ -109,7 +125,7 @@ impl AppState {
 /// Duration only saved as a bonus - you can have more hits with shorter duration
 /// and it will overwrite previous, longer one.
 fn update_statistics(
-    mut game_state: std::sync::RwLockWriteGuard<'_, GameState>,
+    game_state: &mut std::sync::RwLockWriteGuard<'_, GameState>,
     rally_state: &std::sync::RwLockWriteGuard<'_, RallyState>,
 ) {
     if let Some(start) = rally_state.first_hit_at {
