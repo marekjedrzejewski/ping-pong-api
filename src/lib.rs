@@ -16,7 +16,7 @@ pub mod models;
 #[cfg(test)]
 pub mod tests;
 
-use crate::models::{AppState, GameState, Side};
+use crate::models::{AppState, Side};
 
 pub const BALL_AIR_TIME_SECONDS: u64 = 30;
 const GAME_LOOP_INTERVAL_MS: u64 = 1000;
