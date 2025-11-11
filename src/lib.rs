@@ -44,27 +44,26 @@ async fn run_game_events(state: AppState) {
     }
 }
 
-async fn init_state(pool: &PgPool) -> AppState {
-    let game_state = database::get_game_state(pool).await;
+async fn init_state(pool: &PgPool) -> Result<AppState, database::DbError> {
+    let game_state = database::get_game_state(pool).await?;
 
-    let game_state: GameState = match game_state {
-        Ok(state) => state.unwrap_or_default(),
-        Err(e) => {
-            error!("Failed to get initial game state from database: {e}");
-            exit(1)
-        }
-    };
+    let game_state = game_state.unwrap_or_default();
 
-    AppState {
+    Ok(AppState {
         game_state: Arc::new(RwLock::new(game_state)),
         db_pool: Some((*pool).clone()),
         ..Default::default()
-    }
+    })
 }
 
 pub async fn create_app(pool: PgPool) -> Router {
-    let state = init_state(&pool).await;
-    create_app_from_state(state)
+    match init_state(&pool).await {
+        Ok(state) => create_app_from_state(state),
+        Err(e) => {
+            error!("Failed to initialize app state from database: {e}");
+            exit(1)
+        }
+    }
 }
 
 pub fn create_app_from_state(state: AppState) -> Router {

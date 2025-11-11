@@ -1,6 +1,6 @@
 use crate::models::GameState;
 use log::info;
-use sqlx::{Error as SqlxError, PgPool, migrate::MigrateError, postgres::PgPoolOptions};
+use sqlx::{PgPool, migrate::MigrateError, postgres::PgPoolOptions};
 use std::{
     env::{self, VarError},
     error::Error,
@@ -25,21 +25,20 @@ pub async fn init_db() -> Result<PgPool, DbError> {
     Ok(pool)
 }
 
-pub async fn get_game_state(pool: &PgPool) -> Result<Option<GameState>, SqlxError> {
+pub async fn get_game_state(pool: &PgPool) -> Result<Option<GameState>, DbError> {
     let game_state_row = sqlx::query!("SELECT data_dump FROM game_state ORDER BY id DESC LIMIT 1")
         .fetch_optional(pool)
         .await?;
 
     match game_state_row {
-        Some(row) => {
-            serde_json::from_value(row.data_dump).map_err(|e| SqlxError::Decode(Box::new(e)))
-        }
+        Some(row) => Ok(Some(serde_json::from_value(row.data_dump)?)),
         None => Ok(None),
     }
 }
 
-pub async fn upsert_game_state(pool: PgPool, game_state: GameState) -> Result<(), sqlx::Error> {
-    let data_dump = serde_json::to_value(game_state).map_err(|e| SqlxError::Encode(Box::new(e)))?;
+pub async fn upsert_game_state(pool: PgPool, game_state: GameState) -> Result<(), DbError> {
+    let data_dump =
+        serde_json::to_value(game_state).map_err(|e| sqlx::Error::Encode(Box::new(e)))?;
 
     let mut tx = pool.begin().await?;
 
@@ -62,6 +61,7 @@ pub enum DbError {
     EnvVar(VarError),
     Connection(sqlx::Error),
     Migration(MigrateError),
+    Decoding(serde_json::Error),
 }
 
 impl From<VarError> for DbError {
@@ -82,12 +82,19 @@ impl From<MigrateError> for DbError {
     }
 }
 
+impl From<serde_json::Error> for DbError {
+    fn from(value: serde_json::Error) -> Self {
+        DbError::Decoding(value)
+    }
+}
+
 impl fmt::Display for DbError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             DbError::EnvVar(e) => write!(f, "Database environment variable error: {}", e),
             DbError::Connection(e) => write!(f, "Database connection error: {}", e),
             DbError::Migration(e) => write!(f, "Database migration failed: {}", e),
+            DbError::Decoding(e) => write!(f, "Value decoding failed: {}", e),
         }
     }
 }
@@ -98,6 +105,7 @@ impl Error for DbError {
             DbError::EnvVar(e) => Some(e),
             DbError::Connection(e) => Some(e),
             DbError::Migration(e) => Some(e),
+            DbError::Decoding(e) => Some(e),
         }
     }
 }
