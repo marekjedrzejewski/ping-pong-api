@@ -1,9 +1,16 @@
-use std::time::Duration;
+use std::{
+    process::exit,
+    sync::{Arc, RwLock},
+    time::Duration,
+};
 
 use axum::{Json, Router, extract::State, http::StatusCode, routing::get};
+use log::error;
+use sqlx::PgPool;
 use tokio::time::interval;
 
 pub mod clock;
+pub mod database;
 pub mod models;
 
 #[cfg(test)]
@@ -37,7 +44,29 @@ async fn run_game_events(state: AppState) {
     }
 }
 
-pub fn create_app(state: AppState) -> Router {
+async fn init_state(pool: &PgPool) -> Result<AppState, database::DbError> {
+    let game_state = database::get_game_state(pool).await?;
+
+    let game_state = game_state.unwrap_or_default();
+
+    Ok(AppState {
+        game_state: Arc::new(RwLock::new(game_state)),
+        db_pool: Some((*pool).clone()),
+        ..Default::default()
+    })
+}
+
+pub async fn create_app(pool: PgPool) -> Router {
+    match init_state(&pool).await {
+        Ok(state) => create_app_from_state(state),
+        Err(e) => {
+            error!("Failed to initialize app state from database: {e}");
+            exit(1)
+        }
+    }
+}
+
+pub fn create_app_from_state(state: AppState) -> Router {
     tokio::spawn(run_game_events(state.clone()));
     Router::new()
         .route("/", get(get_state))

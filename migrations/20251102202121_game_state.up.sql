@@ -1,0 +1,5 @@
+CREATE TABLE
+  game_state (
+    id BIGINT GENERATED ALWAYS AS IDENTITY,
+    data_dump JSONB NOT NULL
+  );

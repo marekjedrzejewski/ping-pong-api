@@ -1,10 +1,10 @@
 use axum_test::TestServer;
 
-use crate::{AppState, create_app};
+use crate::{AppState, create_app_from_state};
 
 pub fn setup_test_server() -> TestServer {
     let state = AppState::default();
-    let app = create_app(state);
+    let app = create_app_from_state(state);
     TestServer::builder()
         .mock_transport()
         .build(app)
