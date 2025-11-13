@@ -11,7 +11,7 @@ use sqlx::PgPool;
 use crate::clock;
 use crate::database;
 
-#[derive(Clone, Copy, Serialize, Deserialize, PartialEq, Default)]
+#[derive(Clone, Copy, Serialize, Deserialize, PartialEq, Default, Debug)]
 #[serde(rename_all = "lowercase")]
 pub enum Side {
     #[default]
@@ -37,7 +37,7 @@ impl fmt::Display for Side {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize, Default)]
+#[derive(Clone, Serialize, Deserialize, Default, PartialEq, Debug)]
 pub struct Score {
     pub ping: usize,
     pub pong: usize,
@@ -63,14 +63,14 @@ pub struct RallyState {
     pub hit_count: usize,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct RallyStatistics {
     hit_count: usize,
     duration: SignedDuration,
 }
 
-#[derive(Clone, Serialize, Deserialize, Default)]
+#[derive(Clone, Serialize, Deserialize, Default, PartialEq, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct GameState {
     pub server: Side,
