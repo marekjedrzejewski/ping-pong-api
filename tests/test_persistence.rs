@@ -1,8 +1,11 @@
 use std::{
+    env,
     io::{BufRead, BufReader},
     net::TcpListener,
     process::{Child, Command, Stdio},
 };
+
+extern crate libc;
 
 use ping_pong_api::models::GameState;
 use serde_json::Value;
@@ -20,7 +23,7 @@ async fn test_persistence() {
         .port();
     let api_endpoint = format!("http://127.0.0.1:{api_port}");
 
-    let mut server_process = start_server_and_wait_until_ready(connection_string, api_port);
+    let server_process = start_server_and_wait_until_ready(connection_string, api_port);
 
     // Server should start with clean db
     let app_state: Value = reqwest::get(&api_endpoint)
@@ -51,9 +54,8 @@ async fn test_persistence() {
         serde_json::from_value(app_state["gameState"].clone()).unwrap();
 
     // Restart server
-    server_process.kill().unwrap();
-    server_process.wait().unwrap();
-    let mut server_process = start_server_and_wait_until_ready(connection_string, api_port);
+    let _ = send_sigterm_and_wait_for_exit(server_process);
+    let server_process = start_server_and_wait_until_ready(connection_string, api_port);
 
     // ...and compare values with ones from the last run
     let app_state: Value = reqwest::get(&api_endpoint)
@@ -67,17 +69,25 @@ async fn test_persistence() {
     assert_ne!(initial_game_state, game_state_before_restart);
     assert_eq!(game_state_before_restart, game_state_after_restart);
 
-    server_process.kill().unwrap();
-    server_process.wait().unwrap();
+    let _ = send_sigterm_and_wait_for_exit(server_process);
 }
 
 fn start_server_and_wait_until_ready(db_url: &str, api_port: u16) -> Child {
     const SUCCESS_MESSAGE: &str = "Database initialized";
-    let mut server_process = Command::new("cargo")
-        .args(["run"])
+
+    let app_binary_path = env!("CARGO_BIN_EXE_ping_pong_api");
+
+    let manifest_dir = env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR not set by cargo");
+    let profile_file_path = format!(
+        "{}/target/llvm-cov-target/ping_pong_api.{}.%p.profraw",
+        manifest_dir, api_port
+    );
+
+    let mut server_process = Command::new(app_binary_path)
         .env("DATABASE_URL", db_url)
         .env("RUST_LOG", "info")
         .env("SERVER_PORT", api_port.to_string())
+        .env("LLVM_PROFILE_FILE", profile_file_path)
         .stderr(Stdio::piped())
         .spawn()
         .expect("Failed to run application");
@@ -107,4 +117,19 @@ fn start_server_and_wait_until_ready(db_url: &str, api_port: u16) -> Child {
     }
 
     server_process
+}
+
+#[cfg(target_family = "unix")]
+fn send_sigterm_and_wait_for_exit(mut child: Child) -> Result<(), std::io::Error> {
+    let pid = child.id() as libc::pid_t;
+    let signal = libc::SIGTERM;
+
+    let result = unsafe { libc::kill(pid, signal) };
+
+    if result == 0 {
+        let _ = child.wait();
+        Ok(())
+    } else {
+        Err(std::io::Error::last_os_error())
+    }
 }
