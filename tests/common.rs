@@ -1,12 +1,21 @@
 use std::{
     env,
-    io::{BufRead, BufReader},
+    io::{self, BufRead, BufReader},
     process::{Child, Command, Stdio},
 };
 
 pub fn start_server_and_wait_until_ready(db_url: &str, api_port: u16) -> Child {
     const SUCCESS_MESSAGE: &str = "Database initialized";
 
+    start_server_and_wait_for_the_message(db_url, api_port, SUCCESS_MESSAGE)
+        .expect("Failed to start server")
+}
+
+fn start_server_and_wait_for_the_message(
+    db_url: &str,
+    api_port: u16,
+    message: &str,
+) -> Result<Child, io::Error> {
     let app_binary_path = env!("CARGO_BIN_EXE_ping_pong_api");
 
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR not set by cargo");
@@ -29,26 +38,12 @@ pub fn start_server_and_wait_until_ready(db_url: &str, api_port: u16) -> Child {
         .stderr
         .take()
         .expect("Child process did not have a handle to stdout");
+
     let mut reader = BufReader::new(stderr);
-    let mut line = String::new();
-
-    // Read the output until we see the success message
-    loop {
-        match reader.read_line(&mut line) {
-            Ok(0) => {
-                panic!("Application terminated unexpectedly before logging",);
-            }
-            Ok(_) => {
-                if line.contains(SUCCESS_MESSAGE) {
-                    break;
-                }
-                line.clear(); // Clear the buffer for the next line
-            }
-            Err(_) => panic!(),
-        }
+    match wait_for_message(&mut reader, message) {
+        Ok(_) => Ok(server_process),
+        Err(e) => Err(e),
     }
-
-    server_process
 }
 
 #[cfg(target_family = "unix")]
@@ -64,4 +59,16 @@ pub fn send_sigterm_and_wait_for_exit(mut child: Child) -> Result<(), std::io::E
     } else {
         Err(std::io::Error::last_os_error())
     }
+}
+
+fn wait_for_message<R: BufRead>(reader: &mut R, message: &str) -> Result<(), io::Error> {
+    for line_result in reader.lines() {
+        let line = line_result?;
+
+        if line.contains(message) {
+            return Ok(());
+        }
+    }
+
+    Err(io::Error::new(io::ErrorKind::NotFound, "Message not found"))
 }
