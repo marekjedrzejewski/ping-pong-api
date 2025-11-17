@@ -1,25 +1,17 @@
-mod common;
-
-use std::net::TcpListener;
-
-extern crate libc;
-
 use ping_pong_api::models::GameState;
 use serde_json::Value;
 use testcontainers_modules::{postgres, testcontainers::runners::AsyncRunner};
 
-use crate::common::{send_sigterm_and_wait_for_exit, start_server_and_wait_until_ready};
+use crate::common::{
+    get_random_port, send_sigterm_and_wait_for_exit, start_server_and_wait_until_ready,
+};
 
 #[tokio::test]
 async fn test_persistence() {
     let container = postgres::Postgres::default().start().await.unwrap();
     let db_port = container.get_host_port_ipv4(5432).await.unwrap();
     let connection_string = &format!("postgres://postgres:postgres@127.0.0.1:{db_port}/postgres",);
-    let api_port = TcpListener::bind("127.0.0.1:0")
-        .unwrap()
-        .local_addr()
-        .unwrap()
-        .port();
+    let api_port = get_random_port();
     let api_endpoint = format!("http://127.0.0.1:{api_port}");
 
     let server_process = start_server_and_wait_until_ready(connection_string, api_port);

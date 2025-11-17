@@ -1,8 +1,17 @@
 use std::{
     env,
     io::{self, BufRead, BufReader},
+    net::TcpListener,
     process::{Child, Command, Stdio},
 };
+
+pub fn get_random_port() -> u16 {
+    TcpListener::bind("127.0.0.1:0")
+        .unwrap()
+        .local_addr()
+        .unwrap()
+        .port()
+}
 
 pub fn start_server_and_wait_until_ready(db_url: &str, api_port: u16) -> Child {
     const SUCCESS_MESSAGE: &str = "Database initialized";
@@ -11,7 +20,7 @@ pub fn start_server_and_wait_until_ready(db_url: &str, api_port: u16) -> Child {
         .expect("Failed to start server")
 }
 
-fn start_server_and_wait_for_the_message(
+pub fn start_server_and_wait_for_the_message(
     db_url: &str,
     api_port: u16,
     message: &str,
