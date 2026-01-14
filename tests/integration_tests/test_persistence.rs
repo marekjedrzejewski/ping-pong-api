@@ -1,4 +1,4 @@
-use ping_pong_api::models::GameState;
+use ping_pong_api::models::game::GameState;
 use serde_json::Value;
 use testcontainers_modules::{postgres, testcontainers::runners::AsyncRunner};
 

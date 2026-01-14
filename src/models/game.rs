@@ -1,7 +1,5 @@
-use std::{
-    fmt::{self, Formatter},
-    sync::{Arc, RwLock},
-};
+use std::fmt::{self, Formatter};
+use std::sync::{Arc, RwLock};
 
 use jiff::{SignedDuration, Timestamp};
 use log::error;
@@ -78,6 +76,37 @@ pub struct GameState {
     pub longest_rally: Option<RallyStatistics>,
 }
 
+/// Updates longest rally - hit count based.
+///
+/// Duration only saved as a bonus - you can have more hits with shorter duration
+/// and it will overwrite previous, longer one.
+fn update_statistics(
+    game_state: &mut std::sync::RwLockWriteGuard<'_, GameState>,
+    rally_state: &std::sync::RwLockWriteGuard<'_, RallyState>,
+) {
+    if let Some(start) = rally_state.first_hit_at {
+        let current_rally_time = clock::now().duration_since(start);
+        match &mut game_state.longest_rally {
+            None => {
+                game_state.longest_rally = Some(RallyStatistics {
+                    hit_count: rally_state.hit_count,
+                    duration: current_rally_time,
+                })
+            }
+            Some(longest_rally) => {
+                if longest_rally.hit_count < rally_state.hit_count {
+                    longest_rally.duration = current_rally_time;
+                    longest_rally.hit_count = rally_state.hit_count
+                } else if longest_rally.hit_count == rally_state.hit_count
+                    && longest_rally.duration < current_rally_time
+                {
+                    longest_rally.duration = current_rally_time
+                }
+            }
+        }
+    }
+}
+
 #[derive(Clone, Serialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AppState {
@@ -116,37 +145,6 @@ impl AppState {
                     error!("Error while updating game state in database: {e}")
                 }
             });
-        }
-    }
-}
-
-/// Updates longest rally - hit count based.
-///
-/// Duration only saved as a bonus - you can have more hits with shorter duration
-/// and it will overwrite previous, longer one.
-fn update_statistics(
-    game_state: &mut std::sync::RwLockWriteGuard<'_, GameState>,
-    rally_state: &std::sync::RwLockWriteGuard<'_, RallyState>,
-) {
-    if let Some(start) = rally_state.first_hit_at {
-        let current_rally_time = clock::now().duration_since(start);
-        match &mut game_state.longest_rally {
-            None => {
-                game_state.longest_rally = Some(RallyStatistics {
-                    hit_count: rally_state.hit_count,
-                    duration: current_rally_time,
-                })
-            }
-            Some(longest_rally) => {
-                if longest_rally.hit_count < rally_state.hit_count {
-                    longest_rally.duration = current_rally_time;
-                    longest_rally.hit_count = rally_state.hit_count
-                } else if longest_rally.hit_count == rally_state.hit_count
-                    && longest_rally.duration < current_rally_time
-                {
-                    longest_rally.duration = current_rally_time
-                }
-            }
         }
     }
 }

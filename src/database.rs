@@ -1,4 +1,4 @@
-use crate::models::GameState;
+use crate::models::game::GameState;
 use log::info;
 use sqlx::{PgPool, migrate::MigrateError, postgres::PgPoolOptions};
 use std::{
