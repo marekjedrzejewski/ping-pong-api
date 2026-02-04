@@ -4,7 +4,6 @@ use std::sync::{Arc, RwLock};
 use jiff::{SignedDuration, Timestamp};
 use log::error;
 use serde::{Deserialize, Serialize};
-use sqlx::PgPool;
 
 use crate::clock;
 use crate::database;
@@ -109,15 +108,13 @@ fn update_statistics(
 
 #[derive(Clone, Serialize, Default)]
 #[serde(rename_all = "camelCase")]
-pub struct AppState {
+pub struct TableState {
     pub rally_state: Arc<RwLock<RallyState>>,
     pub game_state: Arc<RwLock<GameState>>,
-    #[serde(skip_serializing)]
-    pub db_pool: Option<PgPool>,
 }
 
-impl AppState {
-    pub fn lose_point(self: &AppState, side: Side) {
+impl TableState {
+    pub fn lose_point(self: &TableState, side: Side) {
         let mut game_state = self
             .game_state
             .write()
@@ -138,13 +135,13 @@ impl AppState {
 
         // TODO: 'lose point' might not be only place where we'd want to update db state.
         // In that case, remember to decouple it.
-        let state_to_save = game_state.clone();
-        if let Some(pool) = self.db_pool.clone() {
-            tokio::spawn(async move {
-                if let Err(e) = database::upsert_game_state(pool, state_to_save).await {
-                    error!("Error while updating game state in database: {e}")
-                }
-            });
-        }
+        // let state_to_save = game_state.clone();
+        // if let Some(pool) = self.db_pool.clone() {
+        //     tokio::spawn(async move {
+        //         if let Err(e) = database::upsert_game_state(pool, state_to_save).await {
+        //             error!("Error while updating game state in database: {e}")
+        //         }
+        //     });
+        // }
     }
 }

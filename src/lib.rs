@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     process::exit,
     sync::{Arc, RwLock},
     time::Duration,
@@ -16,12 +17,15 @@ pub mod models;
 #[cfg(test)]
 pub mod tests;
 
-use crate::models::game::{AppState, Side};
+use crate::models::{
+    application::AppState,
+    game::{Side, TableState},
+};
 
 pub const BALL_AIR_TIME_SECONDS: u64 = 30;
 const GAME_LOOP_INTERVAL_MS: u64 = 1000;
 
-async fn run_game_events(state: AppState) {
+async fn run_game_events(state: TableState) {
     let mut interval = interval(Duration::from_millis(GAME_LOOP_INTERVAL_MS));
 
     loop {
@@ -45,14 +49,24 @@ async fn run_game_events(state: AppState) {
 }
 
 async fn init_state(pool: &PgPool) -> Result<AppState, database::DbError> {
-    let game_state = database::get_game_state(pool).await?;
+    let first_id = sqlx::query!("SELECT id FROM game_state ORDER BY id ASC LIMIT 1")
+        .fetch_optional(pool)
+        .await?
+        .map(|row| row.id)
+        .unwrap_or(1);
+
+    let game_state = database::get_table_state(first_id, pool).await?;
 
     let game_state = game_state.unwrap_or_default();
 
-    Ok(AppState {
+    let table_state = TableState {
         game_state: Arc::new(RwLock::new(game_state)),
-        db_pool: Some((*pool).clone()),
         ..Default::default()
+    };
+
+    Ok(AppState {
+        game_tables: Arc::new(RwLock::new(HashMap::from([(first_id, table_state)]))),
+        db_pool: Some(pool.clone()),
     })
 }
 
@@ -67,19 +81,26 @@ pub async fn create_app(pool: PgPool) -> Router {
 }
 
 pub fn create_app_from_state(state: AppState) -> Router {
-    tokio::spawn(run_game_events(state.clone()));
+    let first_table = {
+        let tables = state
+            .game_tables
+            .read()
+            .expect("game_tables read lock was poisoned");
+        tables.values().next().cloned().unwrap_or_default()
+    };
+    tokio::spawn(run_game_events(first_table.clone()));
     Router::new()
         .route("/", get(get_state))
         .route("/ping", get(ping))
         .route("/pong", get(pong))
-        .with_state(state)
+        .with_state(first_table)
 }
 
-async fn get_state(State(state): State<AppState>) -> (StatusCode, Json<AppState>) {
+async fn get_state(State(state): State<TableState>) -> (StatusCode, Json<TableState>) {
     (StatusCode::OK, Json(state))
 }
 
-fn try_hit(side: Side, state: AppState) -> bool {
+fn try_hit(side: Side, state: TableState) -> bool {
     let state_side = state
         .rally_state
         .read()
@@ -105,16 +126,16 @@ fn try_hit(side: Side, state: AppState) -> bool {
     }
 }
 
-fn get_hit_response(side: Side, state: AppState) -> (StatusCode, String) {
+fn get_hit_response(side: Side, state: TableState) -> (StatusCode, String) {
     match try_hit(side, state) {
         true => (StatusCode::OK, side.flip().to_string()),
         false => (StatusCode::CONFLICT, "MISS".to_string()),
     }
 }
 
-async fn ping(State(state): State<AppState>) -> (StatusCode, String) {
+async fn ping(State(state): State<TableState>) -> (StatusCode, String) {
     get_hit_response(Side::Ping, state)
 }
-async fn pong(State(state): State<AppState>) -> (StatusCode, String) {
+async fn pong(State(state): State<TableState>) -> (StatusCode, String) {
     get_hit_response(Side::Pong, state)
 }

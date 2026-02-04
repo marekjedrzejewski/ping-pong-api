@@ -25,8 +25,8 @@ pub async fn init_db() -> Result<PgPool, DbError> {
     Ok(pool)
 }
 
-pub async fn get_game_state(pool: &PgPool) -> Result<Option<GameState>, DbError> {
-    let game_state_row = sqlx::query!("SELECT data_dump FROM game_state ORDER BY id DESC LIMIT 1")
+pub async fn get_table_state(table_id: i64, pool: &PgPool) -> Result<Option<GameState>, DbError> {
+    let game_state_row = sqlx::query!("SELECT data_dump FROM game_state WHERE id = $1", table_id)
         .fetch_optional(pool)
         .await?;
 

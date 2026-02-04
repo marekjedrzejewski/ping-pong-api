@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT data_dump FROM game_state ORDER BY id DESC LIMIT 1",
+  "query": "SELECT data_dump FROM game_state WHERE id = $1",
   "describe": {
     "columns": [
       {
@@ -10,11 +10,13 @@
       }
     ],
     "parameters": {
-      "Left": []
+      "Left": [
+        "Int8"
+      ]
     },
     "nullable": [
       false
     ]
   },
-  "hash": "98f1ee63526894f872c6ba61ee6f17694345ff8f3993e7f5ed91f12e737a5a3d"
+  "hash": "8e20d3bc4f262c37bef87dd7315280120dfa17841b19ae76d7de5e00af984695"
 }
