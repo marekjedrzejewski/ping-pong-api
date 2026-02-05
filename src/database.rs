@@ -1,11 +1,30 @@
 use crate::models::game::GameState;
-use log::info;
+use log::{error, info};
 use sqlx::{PgPool, migrate::MigrateError, postgres::PgPoolOptions};
 use std::{
     env::{self, VarError},
     error::Error,
     fmt,
 };
+use tokio::sync::mpsc;
+
+#[derive(Clone)]
+pub struct TableDbSyncHandle {
+    table_id: i64,
+    tx: mpsc::Sender<(i64, GameState)>,
+}
+impl TableDbSyncHandle {
+    pub fn new(table_id: i64, tx: mpsc::Sender<(i64, GameState)>) -> Self {
+        TableDbSyncHandle { table_id, tx }
+    }
+
+    pub async fn upsert_game_state(
+        &self,
+        game_state: GameState,
+    ) -> Result<(), mpsc::error::SendError<(i64, GameState)>> {
+        self.tx.send((self.table_id, game_state)).await
+    }
+}
 
 pub async fn init_db() -> Result<PgPool, DbError> {
     info!("Starting database initialization");
@@ -36,6 +55,7 @@ pub async fn get_table_state(table_id: i64, pool: &PgPool) -> Result<Option<Game
     }
 }
 
+// TODO: This only handles single table now, extend it.
 pub async fn upsert_game_state(pool: PgPool, game_state: GameState) -> Result<(), DbError> {
     let data_dump =
         serde_json::to_value(game_state).map_err(|e| sqlx::Error::Encode(Box::new(e)))?;
@@ -54,6 +74,17 @@ pub async fn upsert_game_state(pool: PgPool, game_state: GameState) -> Result<()
     tx.commit().await?;
 
     Ok(())
+}
+
+pub async fn db_worker(pool: PgPool, mut rx: mpsc::Receiver<(i64, GameState)>) {
+    while let Some((table_id, game_state)) = rx.recv().await {
+        if let Err(e) = upsert_game_state(pool.clone(), game_state).await {
+            error!(
+                "Error while upserting game state for table {}: {e}",
+                table_id
+            );
+        }
+    }
 }
 
 #[derive(Debug)]

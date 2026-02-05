@@ -8,7 +8,7 @@ use std::{
 use axum::{Json, Router, extract::State, http::StatusCode, routing::get};
 use log::error;
 use sqlx::PgPool;
-use tokio::time::interval;
+use tokio::{sync::mpsc, time::interval};
 
 pub mod clock;
 pub mod database;
@@ -17,13 +17,17 @@ pub mod models;
 #[cfg(test)]
 pub mod tests;
 
-use crate::models::{
-    application::AppState,
-    game::{Side, TableState},
+use crate::{
+    database::{TableDbSyncHandle, db_worker},
+    models::{
+        application::AppState,
+        game::{Side, TableState},
+    },
 };
 
 pub const BALL_AIR_TIME_SECONDS: u64 = 30;
 const GAME_LOOP_INTERVAL_MS: u64 = 1000;
+const MAX_CHANNEL_QUEUE_SIZE: usize = 100;
 
 async fn run_game_events(state: TableState) {
     let mut interval = interval(Duration::from_millis(GAME_LOOP_INTERVAL_MS));
@@ -43,7 +47,7 @@ async fn run_game_events(state: TableState) {
         if let Some(t) = hit_timeout
             && t < clock::now()
         {
-            state.lose_point(side);
+            state.lose_point(side).await;
         }
     }
 }
@@ -55,14 +59,16 @@ async fn init_state(pool: &PgPool) -> Result<AppState, database::DbError> {
         .map(|row| row.id)
         .unwrap_or(1);
 
+    let (db_channel_tx, db_channel_rx) = mpsc::channel(MAX_CHANNEL_QUEUE_SIZE);
+
+    tokio::spawn(db_worker(pool.clone(), db_channel_rx));
+
     let game_state = database::get_table_state(first_id, pool).await?;
 
     let game_state = game_state.unwrap_or_default();
 
-    let table_state = TableState {
-        game_state: Arc::new(RwLock::new(game_state)),
-        ..Default::default()
-    };
+    let table_state =
+        TableState::new(game_state).with_db_handle(TableDbSyncHandle::new(first_id, db_channel_tx));
 
     Ok(AppState {
         game_tables: Arc::new(RwLock::new(HashMap::from([(first_id, table_state)]))),
@@ -100,7 +106,7 @@ async fn get_state(State(state): State<TableState>) -> (StatusCode, Json<TableSt
     (StatusCode::OK, Json(state))
 }
 
-fn try_hit(side: Side, state: TableState) -> bool {
+async fn try_hit(side: Side, state: TableState) -> bool {
     let state_side = state
         .rally_state
         .read()
@@ -120,22 +126,22 @@ fn try_hit(side: Side, state: TableState) -> bool {
 
         true
     } else {
-        state.lose_point(side);
+        state.lose_point(side).await;
 
         false
     }
 }
 
-fn get_hit_response(side: Side, state: TableState) -> (StatusCode, String) {
-    match try_hit(side, state) {
+async fn get_hit_response(side: Side, state: TableState) -> (StatusCode, String) {
+    match try_hit(side, state).await {
         true => (StatusCode::OK, side.flip().to_string()),
         false => (StatusCode::CONFLICT, "MISS".to_string()),
     }
 }
 
 async fn ping(State(state): State<TableState>) -> (StatusCode, String) {
-    get_hit_response(Side::Ping, state)
+    get_hit_response(Side::Ping, state).await
 }
 async fn pong(State(state): State<TableState>) -> (StatusCode, String) {
-    get_hit_response(Side::Pong, state)
+    get_hit_response(Side::Pong, state).await
 }
