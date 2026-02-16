@@ -153,7 +153,7 @@ impl TableState {
         };
 
         if let Some(db_handle) = &self.db_handle
-            && let Err(e) = db_handle.upsert_game_state(game_state).await
+            && let Err(e) = db_handle.update_game_state(game_state).await
         {
             error!("Error while updating game state in database: {e}")
         }

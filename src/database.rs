@@ -18,7 +18,7 @@ impl TableDbSyncHandle {
         TableDbSyncHandle { table_id, tx }
     }
 
-    pub async fn upsert_game_state(
+    pub async fn update_game_state(
         &self,
         game_state: GameState,
     ) -> Result<(), mpsc::error::SendError<(i64, GameState)>> {
@@ -55,21 +55,27 @@ pub async fn get_table_state(table_id: i64, pool: &PgPool) -> Result<Option<Game
     }
 }
 
-// TODO: This only handles single table now, extend it.
-pub async fn upsert_game_state(pool: PgPool, game_state: GameState) -> Result<(), DbError> {
+pub async fn update_game_state(
+    pool: PgPool,
+    table_id: i64,
+    game_state: GameState,
+) -> Result<(), DbError> {
     let data_dump =
         serde_json::to_value(game_state).map_err(|e| sqlx::Error::Encode(Box::new(e)))?;
 
     let mut tx = pool.begin().await?;
 
-    // We currently only care about single game state, hence clearing everything
-    sqlx::query!("DELETE FROM game_state")
-        .execute(&mut *tx)
-        .await?;
+    let result = sqlx::query!(
+        "UPDATE game_state SET data_dump = $2 WHERE id = $1",
+        table_id,
+        data_dump
+    )
+    .execute(&mut *tx)
+    .await?;
 
-    sqlx::query!("INSERT INTO game_state (data_dump) VALUES ($1)", data_dump)
-        .execute(&mut *tx)
-        .await?;
+    if result.rows_affected() == 0 {
+        return Err(DbError::RowNotFound);
+    }
 
     tx.commit().await?;
 
@@ -78,11 +84,13 @@ pub async fn upsert_game_state(pool: PgPool, game_state: GameState) -> Result<()
 
 pub async fn db_worker(pool: PgPool, mut rx: mpsc::Receiver<(i64, GameState)>) {
     while let Some((table_id, game_state)) = rx.recv().await {
-        if let Err(e) = upsert_game_state(pool.clone(), game_state).await {
-            error!(
-                "Error while upserting game state for table {}: {e}",
-                table_id
-            );
+        match update_game_state(pool.clone(), table_id, game_state).await {
+            Ok(_) => {
+                info!("Game state for table {table_id} updated successfully");
+            }
+            Err(e) => {
+                error!("Error while updating game state for table {table_id}: {e}",);
+            }
         }
     }
 }
@@ -93,6 +101,7 @@ pub enum DbError {
     Connection(sqlx::Error),
     Migration(MigrateError),
     Decoding(serde_json::Error),
+    RowNotFound,
 }
 
 impl From<VarError> for DbError {
@@ -126,6 +135,7 @@ impl fmt::Display for DbError {
             DbError::Connection(e) => write!(f, "Database connection error: {}", e),
             DbError::Migration(e) => write!(f, "Database migration failed: {}", e),
             DbError::Decoding(e) => write!(f, "Value decoding failed: {}", e),
+            DbError::RowNotFound => write!(f, "Row not found"),
         }
     }
 }
@@ -137,6 +147,7 @@ impl Error for DbError {
             DbError::Connection(e) => Some(e),
             DbError::Migration(e) => Some(e),
             DbError::Decoding(e) => Some(e),
+            DbError::RowNotFound => None,
         }
     }
 }
