@@ -72,6 +72,11 @@ async fn init_state(pool: &PgPool) -> Result<AppState, database::DbError> {
         }
     };
 
+    // TODO: I'm not sure anymore about this one - on small scale just directly
+    // updating the db is much simpler, and if it grows, why not snapshot entire
+    // state periodically instead of queue for each single update
+    //
+    // That's how you end up if you trust LLM 'good advice' 🤡
     let (db_channel_tx, db_channel_rx) = mpsc::channel(MAX_CHANNEL_QUEUE_SIZE);
 
     tokio::spawn(db_worker(pool.clone(), db_channel_rx));
