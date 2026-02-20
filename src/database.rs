@@ -1,28 +1,27 @@
 use crate::models::game::GameState;
-use log::{error, info};
+use log::info;
 use sqlx::{PgPool, migrate::MigrateError, postgres::PgPoolOptions};
 use std::{
     env::{self, VarError},
     error::Error,
     fmt,
 };
-use tokio::sync::mpsc;
 
 #[derive(Clone)]
 pub struct TableDbSyncHandle {
     table_id: i64,
-    tx: mpsc::Sender<(i64, GameState)>,
+    pool: PgPool,
 }
 impl TableDbSyncHandle {
-    pub fn new(table_id: i64, tx: mpsc::Sender<(i64, GameState)>) -> Self {
-        TableDbSyncHandle { table_id, tx }
+    pub fn new(table_id: i64, pool: PgPool) -> Self {
+        TableDbSyncHandle {
+            table_id,
+            pool: pool.clone(),
+        }
     }
 
-    pub async fn update_game_state(
-        &self,
-        game_state: GameState,
-    ) -> Result<(), mpsc::error::SendError<(i64, GameState)>> {
-        self.tx.send((self.table_id, game_state)).await
+    pub async fn update_game_state(&self, game_state: GameState) -> Result<(), DbError> {
+        update_game_state(&self.pool, self.table_id, game_state).await
     }
 }
 
@@ -56,7 +55,7 @@ pub async fn get_table_state(table_id: i64, pool: &PgPool) -> Result<Option<Game
 }
 
 pub async fn update_game_state(
-    pool: PgPool,
+    pool: &PgPool,
     table_id: i64,
     game_state: GameState,
 ) -> Result<(), DbError> {
@@ -80,19 +79,6 @@ pub async fn update_game_state(
     tx.commit().await?;
 
     Ok(())
-}
-
-pub async fn db_worker(pool: PgPool, mut rx: mpsc::Receiver<(i64, GameState)>) {
-    while let Some((table_id, game_state)) = rx.recv().await {
-        match update_game_state(pool.clone(), table_id, game_state).await {
-            Ok(_) => {
-                info!("Game state for table {table_id} updated successfully");
-            }
-            Err(e) => {
-                error!("Error while updating game state for table {table_id}: {e}",);
-            }
-        }
-    }
 }
 
 #[derive(Debug)]

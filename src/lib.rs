@@ -8,7 +8,7 @@ use std::{
 use axum::{Json, Router, extract::State, http::StatusCode, routing::get};
 use log::error;
 use sqlx::PgPool;
-use tokio::{sync::mpsc, time::interval};
+use tokio::time::interval;
 
 pub mod clock;
 pub mod database;
@@ -18,7 +18,7 @@ pub mod models;
 pub mod tests;
 
 use crate::{
-    database::{TableDbSyncHandle, db_worker},
+    database::TableDbSyncHandle,
     models::{
         application::AppState,
         game::{GameState, Side, TableState},
@@ -27,7 +27,6 @@ use crate::{
 
 pub const BALL_AIR_TIME_SECONDS: u64 = 30;
 const GAME_LOOP_INTERVAL_MS: u64 = 1000;
-const MAX_CHANNEL_QUEUE_SIZE: usize = 100;
 
 async fn run_game_events(state: TableState) {
     let mut interval = interval(Duration::from_millis(GAME_LOOP_INTERVAL_MS));
@@ -72,21 +71,12 @@ async fn init_state(pool: &PgPool) -> Result<AppState, database::DbError> {
         }
     };
 
-    // TODO: I'm not sure anymore about this one - on small scale just directly
-    // updating the db is much simpler, and if it grows, why not snapshot entire
-    // state periodically instead of queue for each single update
-    //
-    // That's how you end up if you trust LLM 'good advice' 🤡
-    let (db_channel_tx, db_channel_rx) = mpsc::channel(MAX_CHANNEL_QUEUE_SIZE);
-
-    tokio::spawn(db_worker(pool.clone(), db_channel_rx));
-
     let game_state = database::get_table_state(state_id, pool).await?;
 
     let game_state = game_state.unwrap_or_default();
 
     let table_state =
-        TableState::new(game_state).with_db_handle(TableDbSyncHandle::new(state_id, db_channel_tx));
+        TableState::new(game_state).with_db_handle(TableDbSyncHandle::new(state_id, pool.clone()));
 
     Ok(AppState {
         game_tables: Arc::new(RwLock::new(HashMap::from([(state_id, table_state)]))),
