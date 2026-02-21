@@ -152,10 +152,12 @@ impl TableState {
             game_state.clone()
         };
 
-        if let Some(db_handle) = &self.db_handle
-            && let Err(e) = db_handle.update_game_state(game_state).await
-        {
-            error!("Error while updating game state in database: {e}")
+        if let Some(db_handle) = self.db_handle.clone() {
+            tokio::spawn(async move {
+                if let Err(e) = db_handle.update_game_state(game_state).await {
+                    error!("Error while updating game state in database: {e}")
+                }
+            });
         }
     }
 }
