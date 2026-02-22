@@ -18,7 +18,7 @@ pub mod models;
 pub mod tests;
 
 use crate::{
-    database::TableDbSyncHandle,
+    database::{TableDbSyncHandle, TableUid},
     models::{
         application::AppState,
         game::{GameState, Side, TableState},
@@ -28,6 +28,7 @@ use crate::{
 pub const BALL_AIR_TIME_SECONDS: u64 = 30;
 const GAME_LOOP_INTERVAL_MS: u64 = 1000;
 
+// TODO: this was good enough for starting, but not sure how well it will scale
 async fn run_game_events(state: TableState) {
     let mut interval = interval(Duration::from_millis(GAME_LOOP_INTERVAL_MS));
 
@@ -76,10 +77,14 @@ async fn init_state(pool: &PgPool) -> Result<AppState, database::DbError> {
     let game_state = game_state.unwrap_or_default();
 
     let table_state =
-        TableState::new(game_state).with_db_handle(TableDbSyncHandle::new(state_id, pool.clone()));
+        TableState::new(game_state).with_db_handle(TableDbSyncHandle::new(state_id, pool));
 
     Ok(AppState {
-        game_tables: Arc::new(RwLock::new(HashMap::from([(state_id, table_state)]))),
+        game_tables: Arc::new(RwLock::new(HashMap::from([(
+            // TODO: hardcoded og until migrated
+            TableUid::new("og".into()),
+            table_state,
+        )]))),
         db_pool: Some(pool.clone()),
     })
 }
@@ -95,6 +100,7 @@ pub async fn create_app(pool: PgPool) -> Router {
 }
 
 pub fn create_app_from_state(state: AppState) -> Router {
+    // TODO: this is obviously temporary
     let first_table = {
         let tables = state
             .game_tables

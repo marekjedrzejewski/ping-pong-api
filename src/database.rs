@@ -7,21 +7,33 @@ use std::{
     fmt,
 };
 
+/// TableUid has constraints on its format enforced by the database.
+/// Specifying different type to be clear that this is not just any string
+/// and not duplicate checks.
+#[derive(Clone, Hash, PartialEq, Eq)]
+pub struct TableUid(String);
+
+impl TableUid {
+    pub fn new(uid: String) -> Self {
+        TableUid(uid)
+    }
+}
+
 #[derive(Clone)]
 pub struct TableDbSyncHandle {
-    table_id: i64,
+    game_state_id: i64,
     pool: PgPool,
 }
 impl TableDbSyncHandle {
-    pub fn new(table_id: i64, pool: PgPool) -> Self {
+    pub fn new(game_state_id: i64, pool: &PgPool) -> Self {
         TableDbSyncHandle {
-            table_id,
+            game_state_id,
             pool: pool.clone(),
         }
     }
 
     pub async fn update_game_state(&self, game_state: GameState) -> Result<(), DbError> {
-        update_game_state(&self.pool, self.table_id, game_state).await
+        update_game_state(&self.pool, self.game_state_id, game_state).await
     }
 }
 
