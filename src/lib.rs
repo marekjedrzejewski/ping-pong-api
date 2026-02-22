@@ -1,5 +1,4 @@
 use std::{
-    collections::HashMap,
     process::exit,
     sync::{Arc, RwLock},
     time::Duration,
@@ -18,10 +17,10 @@ pub mod models;
 pub mod tests;
 
 use crate::{
-    database::{TableDbSyncHandle, TableUid},
+    database::get_game_tables,
     models::{
         application::AppState,
-        game::{GameState, Side, TableState},
+        game::{Side, TableState},
     },
 };
 
@@ -53,38 +52,10 @@ async fn run_game_events(state: TableState) {
 }
 
 async fn init_state(pool: &PgPool) -> Result<AppState, database::DbError> {
-    // TODO: This is only used for clean migration from one to multiple matches.
-    // Refactor once database is adjusted.
-    let existing_state_id =
-        sqlx::query_scalar!("SELECT id FROM game_state ORDER BY id ASC LIMIT 1")
-            .fetch_optional(pool)
-            .await?;
-
-    let state_id = match existing_state_id {
-        Some(id) => id,
-        None => {
-            sqlx::query_scalar!(
-                "INSERT INTO game_state (data_dump) VALUES ($1) RETURNING id",
-                serde_json::to_value(GameState::default())?
-            )
-            .fetch_one(pool)
-            .await?
-        }
-    };
-
-    let game_state = database::get_table_state(state_id, pool).await?;
-
-    let game_state = game_state.unwrap_or_default();
-
-    let table_state =
-        TableState::new(game_state).with_db_handle(TableDbSyncHandle::new(state_id, pool));
+    let game_tables = get_game_tables(pool).await?;
 
     Ok(AppState {
-        game_tables: Arc::new(RwLock::new(HashMap::from([(
-            // TODO: hardcoded og until migrated
-            TableUid::new("og".into()),
-            table_state,
-        )]))),
+        game_tables: Arc::new(RwLock::new(game_tables)),
         db_pool: Some(pool.clone()),
     })
 }
