@@ -5,7 +5,6 @@ use crate::models::{
 use log::info;
 use sqlx::{PgPool, migrate::MigrateError, postgres::PgPoolOptions};
 use std::{
-    collections::HashMap,
     env::{self, VarError},
     error::Error,
     fmt,

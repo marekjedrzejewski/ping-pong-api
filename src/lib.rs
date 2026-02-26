@@ -4,7 +4,14 @@ use std::{
     time::Duration,
 };
 
-use axum::{Json, Router, extract::State, http::StatusCode, routing::get};
+use axum::{
+    Extension, Json, Router,
+    extract::{Path, Request, State},
+    http::StatusCode,
+    middleware::{self, Next},
+    response::Response,
+    routing::get,
+};
 use log::error;
 use sqlx::PgPool;
 use tokio::time::interval;
@@ -17,7 +24,7 @@ pub mod models;
 pub mod tests;
 
 use crate::{
-    database::get_game_tables,
+    database::{TableUid, get_game_tables},
     models::{
         application::AppState,
         game::{Side, TableState},
@@ -71,24 +78,62 @@ pub async fn create_app(pool: PgPool) -> Router {
 }
 
 pub fn create_app_from_state(state: AppState) -> Router {
-    // TODO: this is obviously temporary
-    let first_table = {
-        let tables = state
-            .game_tables
-            .read()
-            .expect("game_tables read lock was poisoned");
-        tables.values().next().cloned().unwrap_or_default()
-    };
-    tokio::spawn(run_game_events(first_table.clone()));
-    Router::new()
+    for (_, table) in state
+        .game_tables
+        .read()
+        .expect("game_tables read lock was poisoned")
+        .iter()
+    {
+        tokio::spawn(run_game_events(table.clone()));
+    }
+
+    let match_routes = Router::new()
         .route("/", get(get_state))
         .route("/ping", get(ping))
         .route("/pong", get(pong))
-        .with_state(first_table)
+        .route_layer(middleware::from_fn_with_state(state.clone(), get_match));
+
+    Router::new()
+        .nest("/match/{id}", match_routes)
+        .with_state(state)
 }
 
-async fn get_state(State(state): State<TableState>) -> (StatusCode, Json<TableState>) {
-    (StatusCode::OK, Json(state))
+async fn get_match(
+    State(state): State<AppState>,
+    Path(uid): Path<String>,
+    mut request: Request,
+    next: Next,
+) -> Response {
+    let table_state = state
+        .game_tables
+        .read()
+        .expect("game_tables read lock was poisoned")
+        .get(&TableUid::new(uid.clone()))
+        .cloned();
+
+    let table_state = match table_state {
+        Some(table_state) => table_state,
+        None => {
+            // TODO: database!
+            let new_table_state = TableState::default();
+            state
+                .game_tables
+                .write()
+                .expect("game_tables write lock was poisoned")
+                .insert(TableUid::new(uid), new_table_state.clone());
+            tokio::spawn(run_game_events(new_table_state.clone()));
+            new_table_state
+        }
+    };
+    request.extensions_mut().insert(table_state.clone());
+
+    Response::from(next.run(request).await)
+}
+
+async fn get_state(
+    Extension(table_state): Extension<TableState>,
+) -> (StatusCode, Json<TableState>) {
+    (StatusCode::OK, Json(table_state))
 }
 
 async fn try_hit(side: Side, state: TableState) -> bool {
@@ -124,9 +169,9 @@ async fn get_hit_response(side: Side, state: TableState) -> (StatusCode, String)
     }
 }
 
-async fn ping(State(state): State<TableState>) -> (StatusCode, String) {
-    get_hit_response(Side::Ping, state).await
+async fn ping(Extension(table_state): Extension<TableState>) -> (StatusCode, String) {
+    get_hit_response(Side::Ping, table_state).await
 }
-async fn pong(State(state): State<TableState>) -> (StatusCode, String) {
-    get_hit_response(Side::Pong, state).await
+async fn pong(Extension(table_state): Extension<TableState>) -> (StatusCode, String) {
+    get_hit_response(Side::Pong, table_state).await
 }

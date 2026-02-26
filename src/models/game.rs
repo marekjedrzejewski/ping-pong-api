@@ -112,6 +112,7 @@ pub struct TableState {
     pub rally_state: Arc<RwLock<RallyState>>,
     pub game_state: Arc<RwLock<GameState>>,
     #[serde(skip)]
+    // TODO: maybe it's better to force db_handle to be present?
     db_handle: Option<TableDbSyncHandle>,
 }
 

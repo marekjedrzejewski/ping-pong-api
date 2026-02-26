@@ -12,7 +12,7 @@ use super::game::TableState;
 // TODO: consider DashMap if contention becomes an issue
 pub type GameTables = HashMap<TableUid, TableState>;
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct AppState {
     pub game_tables: Arc<RwLock<GameTables>>,
     pub db_pool: Option<PgPool>,
