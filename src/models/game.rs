@@ -106,28 +106,22 @@ fn update_statistics(
     }
 }
 
-#[derive(Clone, Serialize, Default)]
+#[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TableState {
     pub rally_state: Arc<RwLock<RallyState>>,
     pub game_state: Arc<RwLock<GameState>>,
     #[serde(skip)]
-    // TODO: maybe it's better to force db_handle to be present?
-    db_handle: Option<TableDbSyncHandle>,
+    db_handle: TableDbSyncHandle,
 }
 
 impl TableState {
-    pub fn new(game_state: GameState) -> Self {
+    pub fn new(game_state: GameState, db_handle: TableDbSyncHandle) -> Self {
         Self {
             game_state: Arc::new(RwLock::new(game_state)),
             rally_state: Arc::default(),
-            db_handle: None,
+            db_handle,
         }
-    }
-
-    pub fn with_db_handle(mut self, db_handle: TableDbSyncHandle) -> Self {
-        self.db_handle = Some(db_handle);
-        self
     }
 
     pub async fn lose_point(&self, side: Side) {
@@ -153,12 +147,11 @@ impl TableState {
             game_state.clone()
         };
 
-        if let Some(db_handle) = self.db_handle.clone() {
-            tokio::spawn(async move {
-                if let Err(e) = db_handle.update_game_state(game_state).await {
-                    error!("Error while updating game state in database: {e}")
-                }
-            });
-        }
+        let db_handle = self.db_handle.clone();
+        tokio::spawn(async move {
+            if let Err(e) = db_handle.update_game_state(game_state).await {
+                error!("Error while updating game state in database: {e}")
+            }
+        });
     }
 }

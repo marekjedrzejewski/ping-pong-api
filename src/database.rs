@@ -69,22 +69,13 @@ pub async fn get_game_tables(pool: &PgPool) -> Result<GameTables, DbError> {
     .into_iter()
     .map(|row| {
         // TODO: One bad record destroys everything. Think if we want that or filter
-        let table_state = TableState::new(serde_json::from_value(row.game_state)?)
-            .with_db_handle(TableDbSyncHandle::new(row.game_state_id, pool));
+        let table_state = TableState::new(
+            serde_json::from_value(row.game_state)?,
+            TableDbSyncHandle::new(row.game_state_id, pool),
+        );
         Ok((TableUid(row.uid), table_state))
     })
     .collect()
-}
-
-pub async fn get_table_state(table_id: i64, pool: &PgPool) -> Result<Option<GameState>, DbError> {
-    let game_state_row = sqlx::query!("SELECT data_dump FROM game_state WHERE id = $1", table_id)
-        .fetch_optional(pool)
-        .await?;
-
-    match game_state_row {
-        Some(row) => Ok(Some(serde_json::from_value(row.data_dump)?)),
-        None => Ok(None),
-    }
 }
 
 pub async fn update_game_state(

@@ -114,15 +114,11 @@ async fn get_match(
     let table_state = match table_state {
         Some(table_state) => table_state,
         None => {
-            // TODO: database!
-            let new_table_state = TableState::default();
-            state
-                .game_tables
-                .write()
-                .expect("game_tables write lock was poisoned")
-                .insert(TableUid::new(uid), new_table_state.clone());
-            tokio::spawn(run_game_events(new_table_state.clone()));
-            new_table_state
+            return Response::builder()
+                .status(StatusCode::NOT_FOUND)
+                .body(format!("No match with id {uid}").into())
+                .unwrap();
+            // TODO: create new match instead of 404
         }
     };
     request.extensions_mut().insert(table_state.clone());

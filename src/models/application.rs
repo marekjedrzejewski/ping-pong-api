@@ -15,5 +15,6 @@ pub type GameTables = HashMap<TableUid, TableState>;
 #[derive(Default, Clone)]
 pub struct AppState {
     pub game_tables: Arc<RwLock<GameTables>>,
+    // TODO: This should not be optional, but tests currently use `default`. Refactor
     pub db_pool: Option<PgPool>,
 }
