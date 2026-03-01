@@ -4,6 +4,10 @@
 Fast-paced, high-stakes ping pong!
 This project tests your reflexes and decision-making by giving you mere 30 seconds to respond to every volley. **Can you handle the heat?**
 
+If you're too lazy to set it up yourself, it's deployed ➡️[here](https://ping-pong-api-ez1l.onrender.com/)⬅️,
+but beware, everyone, including your mom, can grab any paddle and swing it around there
+...and you probably will have to wait for the instance to spin up.
+
 
 ## Endpoints
 - `/` has game state info
