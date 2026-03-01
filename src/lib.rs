@@ -8,6 +8,7 @@ use axum::{Json, Router, extract::State, http::StatusCode, routing::get};
 use log::error;
 use sqlx::PgPool;
 use tokio::time::interval;
+use tower_http::cors::{Any, CorsLayer};
 
 pub mod clock;
 pub mod database;
@@ -68,11 +69,19 @@ pub async fn create_app(pool: PgPool) -> Router {
 
 pub fn create_app_from_state(state: AppState) -> Router {
     tokio::spawn(run_game_events(state.clone()));
+
+    // TODO: Consider restricting CORS in the future
+    let cors = CorsLayer::new()
+        .allow_origin(Any)
+        .allow_methods(Any)
+        .allow_headers(Any);
+
     Router::new()
         .route("/", get(get_state))
         .route("/ping", get(ping))
         .route("/pong", get(pong))
         .with_state(state)
+        .layer(cors)
 }
 
 async fn get_state(State(state): State<AppState>) -> (StatusCode, Json<AppState>) {

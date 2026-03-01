@@ -1885,6 +1885,7 @@ dependencies = [
  "sqlx",
  "testcontainers-modules",
  "tokio",
+ "tower-http",
 ]
 
 [[package]]
