@@ -8,6 +8,8 @@ If you're too lazy to set it up yourself, it's deployed ➡️[here](https://pin
 but beware, everyone, including your mom, can grab any paddle and swing it around there
 ...and you probably will have to wait for the instance to spin up.
 
+If you want flashy UI, there's [this thing quickly thrown around using gemini](https://gist.githack.com/marekjedrzejewski/0666ea6cf840839c5b344327dd6c8ef9/raw/a6a12a8edafb609c2376f19cceed135838aef2d2/ping-pong.html). Same rules apply and it uses the above deploy.
+
 
 ## Endpoints
 - `/` has game state info
