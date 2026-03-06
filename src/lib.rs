@@ -15,6 +15,7 @@ use axum::{
 use log::error;
 use sqlx::PgPool;
 use tokio::time::interval;
+use tower_http::cors::{Any, CorsLayer};
 
 pub mod clock;
 pub mod database;
@@ -87,6 +88,12 @@ pub fn create_app_from_state(state: AppState) -> Router {
         tokio::spawn(run_game_events(table.clone()));
     }
 
+    // TODO: Consider restricting CORS in the future
+    let cors = CorsLayer::new()
+        .allow_origin(Any)
+        .allow_methods(Any)
+        .allow_headers(Any);
+
     let match_routes = Router::new()
         .route("/", get(get_state))
         .route("/ping", get(ping))
@@ -96,6 +103,7 @@ pub fn create_app_from_state(state: AppState) -> Router {
     Router::new()
         .nest("/match/{id}", match_routes)
         .with_state(state)
+        .layer(cors)
 }
 
 async fn get_match(
