@@ -112,11 +112,21 @@ async fn get_match(
     mut request: Request,
     next: Next,
 ) -> Response {
+    let uid = match TableUid::parse(&uid) {
+        Ok(uid) => uid,
+        Err(_) => {
+            return Response::builder()
+                .status(StatusCode::BAD_REQUEST)
+                .body(format!("Invalid match id format: {uid}").into())
+                .unwrap();
+        }
+    };
+
     let table_state = state
         .game_tables
         .read()
         .expect("game_tables read lock was poisoned")
-        .get(&TableUid::new(uid.clone()))
+        .get(&uid)
         .cloned();
 
     let table_state = match table_state {

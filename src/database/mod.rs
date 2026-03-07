@@ -1,4 +1,5 @@
 mod db_error;
+mod table_uid;
 use crate::models::{
     application::GameTables,
     game::{GameState, TableState},
@@ -7,18 +8,7 @@ pub use db_error::DbError;
 use log::info;
 use sqlx::{PgPool, postgres::PgPoolOptions};
 use std::env;
-
-/// TableUid has constraints on its format enforced by the database.
-/// Specifying different type to be clear that this is not just any string
-/// and not duplicate checks.
-#[derive(Clone, Hash, PartialEq, Eq)]
-pub struct TableUid(String);
-
-impl TableUid {
-    pub fn new(uid: String) -> Self {
-        TableUid(uid)
-    }
-}
+pub use table_uid::TableUid;
 
 #[derive(Clone)]
 pub struct TableDbSyncHandle {
@@ -71,7 +61,12 @@ pub async fn get_game_tables(pool: &PgPool) -> Result<GameTables, DbError> {
             serde_json::from_value(row.game_state)?,
             TableDbSyncHandle::new(row.game_state_id, pool),
         );
-        Ok((TableUid(row.uid), table_state))
+        Ok((
+            // If database has invalid UIDs we want to fail fast and fix
+            TableUid::parse(&row.uid)
+                .unwrap_or_else(|_| panic!("Invalid Table UID in database: {}", &row.uid)),
+            table_state,
+        ))
     })
     .collect()
 }
