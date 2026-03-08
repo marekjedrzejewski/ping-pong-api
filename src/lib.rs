@@ -64,7 +64,7 @@ async fn init_state(pool: &PgPool) -> Result<AppState, database::DbError> {
 
     Ok(AppState {
         game_tables: Arc::new(RwLock::new(game_tables)),
-        db_pool: Some(pool.clone()),
+        db_pool: pool.clone(),
     })
 }
 

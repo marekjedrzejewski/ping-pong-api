@@ -1,9 +1,15 @@
 use axum_test::TestServer;
+use sqlx::PgPool;
 
 use crate::{AppState, create_app_from_state};
 
 pub fn setup_test_server() -> TestServer {
-    let state = AppState::default();
+    let state = AppState {
+        game_tables: Default::default(),
+        // TODO: Maybe update this, but as tests were not using db before, should work for now
+        db_pool: PgPool::connect_lazy("postgres://localhost/unused")
+            .expect("Failed to connect to database"),
+    };
     let app = create_app_from_state(state);
     TestServer::builder()
         .mock_transport()
