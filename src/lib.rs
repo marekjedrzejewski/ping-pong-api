@@ -137,6 +137,9 @@ async fn get_match(
                 .body(format!("No match with id {uid}").into())
                 .unwrap();
             // TODO: create new match instead of 404
+            // IF THE CONFIG IS SET TO ALLOW IT. And yeah, btw add config
+            // config should also have `DEBUG` which would be used to add
+            // info about having to allow that in config to the response.
         }
     };
     request.extensions_mut().insert(table_state.clone());
