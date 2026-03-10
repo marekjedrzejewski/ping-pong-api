@@ -71,7 +71,36 @@ pub async fn get_game_tables(pool: &PgPool) -> Result<GameTables, DbError> {
     .collect()
 }
 
-pub async fn update_game_state(
+pub async fn create_new_match(pool: &PgPool, uid: &TableUid) -> Result<TableState, DbError> {
+    let initial_game_state = GameState::default();
+
+    let mut tx = pool.begin().await?;
+
+    let game_state_id = sqlx::query!(
+        "INSERT INTO game_state (data_dump) VALUES ($1) RETURNING id",
+        serde_json::to_value(&initial_game_state)?
+    )
+    .fetch_one(&mut *tx)
+    .await?
+    .id;
+
+    sqlx::query!(
+        "INSERT INTO match (uid, game_state_id) VALUES ($1, $2)",
+        uid,
+        game_state_id
+    )
+    .execute(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    Ok(TableState::new(
+        initial_game_state,
+        TableDbSyncHandle::new(game_state_id, pool),
+    ))
+}
+
+async fn update_game_state(
     pool: &PgPool,
     table_id: i64,
     game_state: GameState,

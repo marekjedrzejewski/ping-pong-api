@@ -9,7 +9,7 @@ use axum::{
     extract::{Path, Request, State},
     http::StatusCode,
     middleware::{self, Next},
-    response::Response,
+    response::{IntoResponse, Response},
     routing::get,
 };
 use log::error;
@@ -25,7 +25,7 @@ pub mod models;
 pub mod tests;
 
 use crate::{
-    database::{TableUid, get_game_tables},
+    database::{TableUid, create_new_match, get_game_tables},
     models::{
         application::AppState,
         game::{Side, TableState},
@@ -98,7 +98,10 @@ pub fn create_app_from_state(state: AppState) -> Router {
         .route("/", get(get_state))
         .route("/ping", get(ping))
         .route("/pong", get(pong))
-        .route_layer(middleware::from_fn_with_state(state.clone(), get_match));
+        .route_layer(middleware::from_fn_with_state(
+            state.clone(),
+            get_or_create_match,
+        ));
 
     Router::new()
         .nest("/match/{id}", match_routes)
@@ -106,7 +109,7 @@ pub fn create_app_from_state(state: AppState) -> Router {
         .layer(cors)
 }
 
-async fn get_match(
+async fn get_or_create_match(
     State(state): State<AppState>,
     Path(uid): Path<String>,
     mut request: Request,
@@ -115,10 +118,11 @@ async fn get_match(
     let uid = match TableUid::parse(&uid) {
         Ok(uid) => uid,
         Err(_) => {
-            return Response::builder()
-                .status(StatusCode::BAD_REQUEST)
-                .body(format!("Invalid match id format: {uid}").into())
-                .unwrap();
+            return (
+                StatusCode::BAD_REQUEST,
+                format!("Invalid match id format: {uid}"),
+            )
+                .into_response();
         }
     };
 
@@ -132,14 +136,27 @@ async fn get_match(
     let table_state = match table_state {
         Some(table_state) => table_state,
         None => {
-            return Response::builder()
-                .status(StatusCode::NOT_FOUND)
-                .body(format!("No match with id {uid}").into())
-                .unwrap();
-            // TODO: create new match instead of 404
-            // IF THE CONFIG IS SET TO ALLOW IT. And yeah, btw add config
+            // TODO: create new match IF THE CONFIG IS SET TO ALLOW IT.
+            // And yeah, btw add config.
             // config should also have `DEBUG` which would be used to add
             // info about having to allow that in config to the response.
+            match create_new_match(&state.db_pool, &uid).await {
+                Ok(table_state) => {
+                    state
+                        .game_tables
+                        .write()
+                        .expect("game_tables write lock was poisoned")
+                        .insert(uid, table_state.clone());
+
+                    tokio::spawn(run_game_events(table_state.clone()));
+
+                    table_state
+                }
+                Err(e) => {
+                    error!("Failed to create new match with id {uid}: {e}");
+                    return (StatusCode::INTERNAL_SERVER_ERROR).into_response();
+                }
+            }
         }
     };
     request.extensions_mut().insert(table_state.clone());
