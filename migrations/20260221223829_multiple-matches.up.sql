@@ -8,10 +8,15 @@ CREATE TABLE match(
 
 -- If there was previous state, it will be first one in the table as that's what
 -- code touches. Other ones might be there, but if that's the case, they must have been
--- created manually.
+-- created manually - we want to delete them.
+DELETE FROM game_state
+WHERE id NOT IN (
+    SELECT id FROM game_state
+    ORDER BY id ASC
+    LIMIT 1
+);
+
 -- This creates 'og' match for it - if there was no state, nothing happens.
 INSERT INTO match (uid, game_state_id)
     SELECT 'og', id
-    FROM game_state
-    ORDER BY id
-    ASC LIMIT 1;
+    FROM game_state;
