@@ -117,12 +117,8 @@ async fn get_or_create_match(
 ) -> Response {
     let uid = match TableUid::parse(&uid) {
         Ok(uid) => uid,
-        Err(_) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                format!("Invalid match id format: {uid}"),
-            )
-                .into_response();
+        Err(e) => {
+            return (StatusCode::BAD_REQUEST, e.to_string()).into_response();
         }
     };
 

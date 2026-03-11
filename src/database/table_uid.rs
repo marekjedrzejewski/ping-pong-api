@@ -8,6 +8,7 @@ use sqlx::Type;
 const UID_MAX_LENGTH: usize = 6;
 fn is_valid_uid(uid: &str) -> bool {
     uid.len() <= UID_MAX_LENGTH
+        && !uid.is_empty()
         && uid
             .chars()
             .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit())
