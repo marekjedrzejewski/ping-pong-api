@@ -1,15 +1,24 @@
+use std::{
+    collections::HashMap,
+    sync::{Arc, RwLock},
+};
+
 use axum_test::TestServer;
 use sqlx::PgPool;
 
-use crate::{AppState, create_app_from_state};
+use crate::{
+    AppState, create_app_from_state,
+    database::TableUid,
+    models::game::{GameState, TableState},
+};
+
+pub static MATCH_ID: &str = "test";
+pub static MATCH_ENDPOINT: &str = "/match/test";
+pub static PING_ENDPOINT: &str = "/match/test/ping";
+pub static PONG_ENDPOINT: &str = "/match/test/pong";
 
 pub fn setup_test_server() -> TestServer {
-    let state = AppState {
-        game_tables: Default::default(),
-        // TODO: Maybe update this, but as tests were not using db before, should work for now
-        db_pool: PgPool::connect_lazy("postgres://localhost/unused")
-            .expect("Failed to connect to database"),
-    };
+    let state = init_test_state();
     let app = create_app_from_state(state);
     TestServer::builder()
         .mock_transport()
@@ -65,5 +74,22 @@ pub mod mock_clock {
 
     pub fn set_time(time: Timestamp) {
         TEST_CLOCK.with(|clock| clock.set_time(time));
+    }
+}
+
+fn init_test_state() -> AppState {
+    let dummy_pool =
+        PgPool::connect_lazy("postgres://localhost/unused").expect("Failed to connect to database");
+    let tables = HashMap::from([(
+        TableUid::parse(MATCH_ID).unwrap(),
+        TableState::new(
+            GameState::default(),
+            crate::database::TableDbSyncHandle::new(0, &dummy_pool),
+        ),
+    )]);
+
+    AppState {
+        game_tables: Arc::new(RwLock::new(tables)),
+        db_pool: dummy_pool,
     }
 }

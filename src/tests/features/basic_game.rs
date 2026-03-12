@@ -1,13 +1,13 @@
 use axum::http::StatusCode;
 use serde_json::json;
 
-use crate::tests::utils::setup_test_server;
+use crate::tests::utils::{MATCH_ENDPOINT, PING_ENDPOINT, PONG_ENDPOINT, setup_test_server};
 
 #[tokio::test]
 async fn play_some_ping_pong() {
     let server = setup_test_server();
 
-    let root_response = server.get("/").await;
+    let root_response = server.get(MATCH_ENDPOINT).await;
     root_response.assert_status_ok();
     root_response.assert_json(&json!({
         "rallyState": {
@@ -27,71 +27,86 @@ async fn play_some_ping_pong() {
     }));
 
     // can't pong if it's ping turn
-    let pong_response = server.get("/pong").await;
+    let pong_response = server.get(PONG_ENDPOINT).await;
     pong_response.assert_status(StatusCode::CONFLICT);
     pong_response.assert_text("MISS");
-    server.get("/").await.assert_json_contains(&json!({
-        "gameState": {
-            "server": "pong",
-            "score": {
-                "ping": 1,
-                "pong": 0
+    server
+        .get(MATCH_ENDPOINT)
+        .await
+        .assert_json_contains(&json!({
+            "gameState": {
+                "server": "pong",
+                "score": {
+                    "ping": 1,
+                    "pong": 0
+                }
             }
-        }
-    }));
+        }));
 
     // pong now serving, it's miss again
-    let ping_response = server.get("/ping").await;
-    pong_response.assert_status(StatusCode::CONFLICT);
+    let ping_response = server.get(PING_ENDPOINT).await;
+    ping_response.assert_status(StatusCode::CONFLICT);
     ping_response.assert_text("MISS");
-    server.get("/").await.assert_json_contains(&json!({
-        "gameState": {
-            "server": "ping",
-            "score": {
-                "ping": 1,
-                "pong": 1
+    server
+        .get(MATCH_ENDPOINT)
+        .await
+        .assert_json_contains(&json!({
+            "gameState": {
+                "server": "ping",
+                "score": {
+                    "ping": 1,
+                    "pong": 1
+                }
             }
-        }
-    }));
+        }));
 
     // ok, at last ping can hit some ball
-    let ping_response = server.get("/ping").await;
+    let ping_response = server.get(PING_ENDPOINT).await;
     ping_response.assert_text("pong");
 
     // same goes for pong
-    let pong_response = server.get("/pong").await;
+    let pong_response = server.get(PONG_ENDPOINT).await;
     pong_response.assert_text("ping");
 
     for _n in 0..50 {
-        server.get("/ping").await.assert_text("pong");
-        server.get("/").await.assert_json_contains(&json!({
-            "rallyState": { "side": "pong" }
-        }));
-        server.get("/pong").await.assert_text("ping");
-        server.get("/").await.assert_json_contains(&json!({
-            "rallyState": { "side": "ping" }
-        }));
+        server.get(PING_ENDPOINT).await.assert_text("pong");
+        server
+            .get(MATCH_ENDPOINT)
+            .await
+            .assert_json_contains(&json!({
+                "rallyState": { "side": "pong" }
+            }));
+        server.get(PONG_ENDPOINT).await.assert_text("ping");
+        server
+            .get(MATCH_ENDPOINT)
+            .await
+            .assert_json_contains(&json!({
+                "rallyState": { "side": "ping" }
+            }));
     }
 
     // timestamp should be present while rally is in progress
-    let root_response: serde_json::Value = server.get("/").await.json();
+    let root_response: serde_json::Value = server.get(MATCH_ENDPOINT).await.json();
     assert!(!root_response.as_object().unwrap()["rallyState"]["hitTimeoutTimestamp"].is_null());
 
     // and another point goes to ping
-    let pong_response = server.get("/pong").await;
+    let pong_response = server.get(PONG_ENDPOINT).await;
     pong_response.assert_text("MISS");
-    server.get("/").await.assert_json_contains(&json!({
-        "rallyState": {
-            // timestamp should be reset on miss
-            "hitTimeoutTimestamp": null
-        },
-        "gameState": {
-            "score": {
-                "ping": 2,
+    server
+        .get(MATCH_ENDPOINT)
+        .await
+        .assert_json_contains(&json!({
+            "rallyState": {
+                // timestamp should be reset on miss
+                "hitTimeoutTimestamp": null
             },
-            "longestRally": {
-                "hitCount": 102
+            "gameState": {
+                "score": {
+                    "ping": 2,
+                },
+                "longestRally": {
+                    "hitCount": 102
+                }
             }
-        }
-    }));
+        }));
 }

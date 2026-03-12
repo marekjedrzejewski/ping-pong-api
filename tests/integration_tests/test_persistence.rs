@@ -13,11 +13,14 @@ async fn test_persistence() {
     let connection_string = &format!("postgres://postgres:postgres@127.0.0.1:{db_port}/postgres",);
     let api_port = get_random_port();
     let api_endpoint = format!("http://127.0.0.1:{api_port}");
+    let match_endpoint = format!("{api_endpoint}/match/test");
+    let ping_endpoint = format!("{match_endpoint}/ping");
+    let pong_endpoint = format!("{match_endpoint}/pong");
 
     let server_process = start_server_and_wait_until_ready(connection_string, api_port);
 
     // Server should start with clean db
-    let app_state: Value = reqwest::get(&api_endpoint)
+    let app_state: Value = reqwest::get(&match_endpoint)
         .await
         .unwrap()
         .json()
@@ -29,13 +32,13 @@ async fn test_persistence() {
 
     // Play a set that ends with pong missing
     for _ in 0..10 {
-        let _ = reqwest::get(format!("{}/ping", &api_endpoint)).await;
-        let _ = reqwest::get(format!("{}/pong", &api_endpoint)).await;
+        let _ = reqwest::get(&ping_endpoint).await;
+        let _ = reqwest::get(&pong_endpoint).await;
     }
-    let _ = reqwest::get(format!("{}/pong", &api_endpoint)).await;
+    let _ = reqwest::get(&pong_endpoint).await;
 
     // Get game state for comparison after restarting server
-    let app_state: Value = reqwest::get(&api_endpoint)
+    let app_state: Value = reqwest::get(&match_endpoint)
         .await
         .unwrap()
         .json()
@@ -49,7 +52,7 @@ async fn test_persistence() {
     let server_process = start_server_and_wait_until_ready(connection_string, api_port);
 
     // ...and compare values with ones from the last run
-    let app_state: Value = reqwest::get(&api_endpoint)
+    let app_state: Value = reqwest::get(&match_endpoint)
         .await
         .unwrap()
         .json()
