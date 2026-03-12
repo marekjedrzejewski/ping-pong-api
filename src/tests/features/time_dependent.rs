@@ -2,8 +2,10 @@ use serde_json::json;
 use std::time::Duration;
 
 use crate::BALL_AIR_TIME_SECONDS;
+use crate::tests::features::multiple_matches::{MATCH_A, MATCH_B, MATCH_IDS};
 use crate::tests::utils::{
     MATCH_ENDPOINT, PING_ENDPOINT, PONG_ENDPOINT, mock_clock, setup_test_server,
+    setup_test_server_with_matches,
 };
 
 async fn advance_time(duration: Duration) {
@@ -147,4 +149,28 @@ async fn longest_rally_updates_on_duration_tie_break() {
     // 10s + 31s = 41s
     assert_eq!(state["gameState"]["longestRally"]["duration"], "PT41S");
     assert_ne!(state["gameState"]["longestRally"]["duration"], duration1);
+}
+
+#[tokio::test]
+async fn timeout_in_one_match_does_not_affect_another() {
+    let server = setup_test_server_with_matches(MATCH_IDS);
+
+    // ping hits in match A only — now it's pong's turn
+    server
+        .get(&format!("{MATCH_A}/ping"))
+        .await
+        .assert_text("pong");
+
+    // advance time past timeout — pong didn't respond, so ping scores
+    advance_time(Duration::from_secs(BALL_AIR_TIME_SECONDS + 1)).await;
+
+    server
+        .get(MATCH_A)
+        .await
+        .assert_json_contains(&json!({ "gameState": { "score": { "ping": 1, "pong": 0 } } }));
+
+    server
+        .get(MATCH_B)
+        .await
+        .assert_json_contains(&json!({ "gameState": { "score": { "ping": 0, "pong": 0 } } }));
 }
