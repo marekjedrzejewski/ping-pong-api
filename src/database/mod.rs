@@ -8,7 +8,7 @@ pub use db_error::DbError;
 use log::info;
 use sqlx::{PgPool, postgres::PgPoolOptions};
 use std::env;
-pub use table_uid::TableUid;
+pub use table_uid::{TableUid, TableUidError};
 
 #[derive(Clone)]
 pub struct TableDbSyncHandle {
@@ -86,7 +86,7 @@ pub async fn create_new_match(pool: &PgPool, uid: &TableUid) -> Result<TableStat
 
     sqlx::query!(
         "INSERT INTO match (uid, game_state_id) VALUES ($1, $2)",
-        uid,
+        uid.as_str(),
         game_state_id
     )
     .execute(&mut *tx)

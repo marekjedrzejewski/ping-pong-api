@@ -1,4 +1,4 @@
-use std::{fmt, ops::Deref};
+use std::fmt;
 
 use sqlx::Type;
 
@@ -19,6 +19,18 @@ fn is_valid_uid(uid: &str) -> bool {
 pub struct TableUid(String);
 
 impl TableUid {
+    /// Parses a string into a TableUid, validating the format (lowercase + digits, max 6 chars)
+    ///
+    /// Example:
+    /// ```
+    /// use ping_pong_api::database::{TableUid, TableUidError};
+    /// assert_eq!(TableUid::parse("abc123").unwrap().as_str(), "abc123");
+    ///
+    /// let invalid_uids = ["toolong", "UPPER", "b-a-d!", "", "💥"];
+    /// for uid in invalid_uids {
+    ///     assert!(matches!(TableUid::parse(uid), Err(TableUidError::InvalidFormat)));
+    /// }
+    /// ```
     pub fn parse(uid: impl Into<String>) -> Result<Self, TableUidError> {
         let uid = uid.into();
         if !is_valid_uid(&uid) {
@@ -26,19 +38,15 @@ impl TableUid {
         }
         Ok(Self(uid))
     }
-}
 
-impl Deref for TableUid {
-    type Target = str;
-
-    fn deref(&self) -> &Self::Target {
+    pub fn as_str(&self) -> &str {
         &self.0
     }
 }
 
 impl fmt::Display for TableUid {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.0)
+        f.write_str(self.as_str())
     }
 }
 
