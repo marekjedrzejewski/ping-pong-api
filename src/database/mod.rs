@@ -108,21 +108,17 @@ async fn update_game_state(
     let data_dump =
         serde_json::to_value(game_state).map_err(|e| sqlx::Error::Encode(Box::new(e)))?;
 
-    let mut tx = pool.begin().await?;
-
     let result = sqlx::query!(
         "UPDATE game_state SET data_dump = $2 WHERE id = $1",
         table_id,
         data_dump
     )
-    .execute(&mut *tx)
+    .execute(pool)
     .await?;
 
     if result.rows_affected() == 0 {
         return Err(DbError::RowNotFound);
     }
-
-    tx.commit().await?;
 
     Ok(())
 }
