@@ -167,29 +167,29 @@ async fn get_state(
 }
 
 async fn try_hit(side: Side, state: TableState) -> bool {
-    let state_side = state
-        .rally_state
-        .read()
-        .expect("rally_state read lock was poisoned")
-        .side;
-
-    if side == state_side {
+    let did_hit = {
         let mut rally_state = state
             .rally_state
             .write()
             .expect("rally_state write lock was poisoned");
 
-        rally_state.side = (rally_state.side).flip();
-        rally_state.hit_count += 1;
-        rally_state.hit_timeout = Some(clock::now() + Duration::from_secs(BALL_AIR_TIME_SECONDS));
-        rally_state.first_hit_at.get_or_insert_with(clock::now);
+        if side == rally_state.side {
+            rally_state.side = (rally_state.side).flip();
+            rally_state.hit_count += 1;
+            rally_state.hit_timeout =
+                Some(clock::now() + Duration::from_secs(BALL_AIR_TIME_SECONDS));
+            rally_state.first_hit_at.get_or_insert_with(clock::now);
 
-        true
-    } else {
+            true
+        } else {
+            false
+        }
+    };
+    if !did_hit {
         state.lose_point(side).await;
+    };
 
-        false
-    }
+    did_hit
 }
 
 async fn get_hit_response(side: Side, state: TableState) -> (StatusCode, String) {
