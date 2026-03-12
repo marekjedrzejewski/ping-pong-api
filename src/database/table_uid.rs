@@ -20,17 +20,6 @@ pub struct TableUid(String);
 
 impl TableUid {
     /// Parses a string into a TableUid, validating the format (lowercase + digits, max 6 chars)
-    ///
-    /// Example:
-    /// ```
-    /// use ping_pong_api::database::{TableUid, TableUidError};
-    /// assert_eq!(TableUid::parse("abc123").unwrap().as_str(), "abc123");
-    ///
-    /// let invalid_uids = ["toolong", "UPPER", "b-a-d!", "", "💥"];
-    /// for uid in invalid_uids {
-    ///     assert!(matches!(TableUid::parse(uid), Err(TableUidError::InvalidFormat)));
-    /// }
-    /// ```
     pub fn parse(uid: impl Into<String>) -> Result<Self, TableUidError> {
         let uid = uid.into();
         if !is_valid_uid(&uid) {
@@ -64,5 +53,39 @@ impl fmt::Display for TableUidError {
                 UID_MAX_LENGTH
             ),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn valid_uids() {
+        let valid_uids = ["abc123", "a1b2c3", "123456", "abcdef", "a", "1"];
+        for &uid in &valid_uids {
+            assert_eq!(TableUid::parse(uid).unwrap().as_str(), uid);
+        }
+    }
+
+    #[test]
+    fn invalid_uids() {
+        let invalid_uids = ["toolong", "UPPER", "b-a-d!", "", "💥"];
+        for uid in invalid_uids {
+            assert!(matches!(
+                TableUid::parse(uid),
+                Err(TableUidError::InvalidFormat)
+            ));
+        }
+    }
+
+    #[test]
+    fn display_implementation() {
+        let uid_str = "abc123";
+        let uid = TableUid::parse(uid_str).unwrap();
+        assert_eq!(uid.to_string(), uid_str);
+
+        let err = TableUidError::InvalidFormat;
+        assert!(err.to_string().contains(&UID_MAX_LENGTH.to_string()));
     }
 }
