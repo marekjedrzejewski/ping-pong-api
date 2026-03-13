@@ -4,8 +4,9 @@ use std::{
     time::Duration,
 };
 
-use axum::Router;
+use axum::{Json, Router, extract::State, http::StatusCode, routing::get};
 use log::error;
+use serde::Serialize;
 use sqlx::PgPool;
 use tokio::time::interval;
 use tower_http::cors::{Any, CorsLayer};
@@ -87,7 +88,28 @@ pub fn create_app_from_state(state: AppState) -> Router {
         .allow_headers(Any);
 
     Router::new()
+        .route("/", get(open_matches))
         .nest("/match/{id}", match_routes(state.clone()))
         .with_state(state)
         .layer(cors)
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct MatchList {
+    open_matches: Vec<String>,
+}
+
+async fn open_matches(State(state): State<AppState>) -> (StatusCode, Json<MatchList>) {
+    let game_tables = state
+        .game_tables
+        .read()
+        .expect("game_tables read lock was poisoned");
+
+    (
+        StatusCode::OK,
+        Json(MatchList {
+            open_matches: game_tables.keys().map(|uid| uid.to_string()).collect(),
+        }),
+    )
 }
