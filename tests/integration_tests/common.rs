@@ -5,6 +5,22 @@ use std::{
     process::{Child, Command, Stdio},
 };
 
+use testcontainers_modules::{
+    postgres::Postgres,
+    testcontainers::{ContainerAsync, runners::AsyncRunner},
+};
+
+pub async fn setup_db() -> (String, ContainerAsync<Postgres>) {
+    let _container = Postgres::default().start().await.unwrap();
+    let db_port = _container.get_host_port_ipv4(5432).await.unwrap();
+
+    (
+        format!("postgres://postgres:postgres@127.0.0.1:{db_port}/postgres"),
+        // container, altough not used directly, needs to be kept alive, because lifecycles
+        _container,
+    )
+}
+
 pub fn get_random_port() -> u16 {
     TcpListener::bind("127.0.0.1:0")
         .unwrap()
