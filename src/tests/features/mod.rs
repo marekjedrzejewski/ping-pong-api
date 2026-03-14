@@ -5,4 +5,5 @@
 //! so conditional compilation for tests does not apply to them.
 
 mod basic_game;
+mod multiple_matches;
 mod time_dependent;

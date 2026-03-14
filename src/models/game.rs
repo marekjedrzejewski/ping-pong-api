@@ -1,15 +1,12 @@
-use std::{
-    fmt::{self, Formatter},
-    sync::{Arc, RwLock},
-};
+use std::fmt::{self, Formatter};
+use std::sync::{Arc, RwLock};
 
 use jiff::{SignedDuration, Timestamp};
 use log::error;
 use serde::{Deserialize, Serialize};
-use sqlx::PgPool;
 
 use crate::clock;
-use crate::database;
+use crate::database::TableDbSyncHandle;
 
 #[derive(Clone, Copy, Serialize, Deserialize, PartialEq, Default, Debug)]
 #[serde(rename_all = "lowercase")]
@@ -78,48 +75,6 @@ pub struct GameState {
     pub longest_rally: Option<RallyStatistics>,
 }
 
-#[derive(Clone, Serialize, Default)]
-#[serde(rename_all = "camelCase")]
-pub struct AppState {
-    pub rally_state: Arc<RwLock<RallyState>>,
-    pub game_state: Arc<RwLock<GameState>>,
-    #[serde(skip_serializing)]
-    pub db_pool: Option<PgPool>,
-}
-
-impl AppState {
-    pub fn lose_point(self: &AppState, side: Side) {
-        let mut game_state = self
-            .game_state
-            .write()
-            .expect("game_state write lock was poisoned");
-        let mut rally_state = self
-            .rally_state
-            .write()
-            .expect("rally_state write lock was poisoned");
-        game_state.score.lose_point(side);
-        game_state.server = game_state.server.flip();
-        rally_state.side = game_state.server;
-
-        update_statistics(&mut game_state, &rally_state);
-
-        rally_state.hit_timeout = None;
-        rally_state.first_hit_at = None;
-        rally_state.hit_count = 0;
-
-        // TODO: 'lose point' might not be only place where we'd want to update db state.
-        // In that case, remember to decouple it.
-        let state_to_save = game_state.clone();
-        if let Some(pool) = self.db_pool.clone() {
-            tokio::spawn(async move {
-                if let Err(e) = database::upsert_game_state(pool, state_to_save).await {
-                    error!("Error while updating game state in database: {e}")
-                }
-            });
-        }
-    }
-}
-
 /// Updates longest rally - hit count based.
 ///
 /// Duration only saved as a bonus - you can have more hits with shorter duration
@@ -148,5 +103,55 @@ fn update_statistics(
                 }
             }
         }
+    }
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TableState {
+    pub rally_state: Arc<RwLock<RallyState>>,
+    pub game_state: Arc<RwLock<GameState>>,
+    #[serde(skip)]
+    db_handle: TableDbSyncHandle,
+}
+
+impl TableState {
+    pub fn new(game_state: GameState, db_handle: TableDbSyncHandle) -> Self {
+        Self {
+            game_state: Arc::new(RwLock::new(game_state)),
+            rally_state: Arc::default(),
+            db_handle,
+        }
+    }
+
+    pub async fn lose_point(&self, side: Side) {
+        let game_state = {
+            let mut game_state = self
+                .game_state
+                .write()
+                .expect("game_state write lock was poisoned");
+            let mut rally_state = self
+                .rally_state
+                .write()
+                .expect("rally_state write lock was poisoned");
+            game_state.score.lose_point(side);
+            game_state.server = game_state.server.flip();
+            rally_state.side = game_state.server;
+
+            update_statistics(&mut game_state, &rally_state);
+
+            rally_state.hit_timeout = None;
+            rally_state.first_hit_at = None;
+            rally_state.hit_count = 0;
+
+            game_state.clone()
+        };
+
+        let db_handle = self.db_handle.clone();
+        tokio::spawn(async move {
+            if let Err(e) = db_handle.update_game_state(game_state).await {
+                error!("Error while updating game state in database: {e}")
+            }
+        });
     }
 }

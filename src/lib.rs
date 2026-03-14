@@ -6,23 +6,30 @@ use std::{
 
 use axum::{Json, Router, extract::State, http::StatusCode, routing::get};
 use log::error;
+use serde::Serialize;
 use sqlx::PgPool;
 use tokio::time::interval;
 use tower_http::cors::{Any, CorsLayer};
 
 pub mod clock;
 pub mod database;
+mod game_table;
 pub mod models;
 
 #[cfg(test)]
 pub mod tests;
 
-use crate::models::{AppState, Side};
+use crate::{
+    database::get_game_tables,
+    game_table::match_routes,
+    models::{application::AppState, game::TableState},
+};
 
 pub const BALL_AIR_TIME_SECONDS: u64 = 30;
 const GAME_LOOP_INTERVAL_MS: u64 = 1000;
 
-async fn run_game_events(state: AppState) {
+// TODO: this was good enough for starting, but not sure how well it will scale
+async fn run_game_events(state: TableState) {
     let mut interval = interval(Duration::from_millis(GAME_LOOP_INTERVAL_MS));
 
     loop {
@@ -40,20 +47,17 @@ async fn run_game_events(state: AppState) {
         if let Some(t) = hit_timeout
             && t < clock::now()
         {
-            state.lose_point(side);
+            state.lose_point(side).await;
         }
     }
 }
 
 async fn init_state(pool: &PgPool) -> Result<AppState, database::DbError> {
-    let game_state = database::get_game_state(pool).await?;
-
-    let game_state = game_state.unwrap_or_default();
+    let game_tables = get_game_tables(pool).await?;
 
     Ok(AppState {
-        game_state: Arc::new(RwLock::new(game_state)),
-        db_pool: Some((*pool).clone()),
-        ..Default::default()
+        game_tables: Arc::new(RwLock::new(game_tables)),
+        db_pool: pool.clone(),
     })
 }
 
@@ -68,7 +72,14 @@ pub async fn create_app(pool: PgPool) -> Router {
 }
 
 pub fn create_app_from_state(state: AppState) -> Router {
-    tokio::spawn(run_game_events(state.clone()));
+    for (_, table) in state
+        .game_tables
+        .read()
+        .expect("game_tables read lock was poisoned")
+        .iter()
+    {
+        tokio::spawn(run_game_events(table.clone()));
+    }
 
     // TODO: Consider restricting CORS in the future
     let cors = CorsLayer::new()
@@ -77,53 +88,28 @@ pub fn create_app_from_state(state: AppState) -> Router {
         .allow_headers(Any);
 
     Router::new()
-        .route("/", get(get_state))
-        .route("/ping", get(ping))
-        .route("/pong", get(pong))
+        .route("/", get(open_matches))
+        .nest("/match/{id}", match_routes(state.clone()))
         .with_state(state)
         .layer(cors)
 }
 
-async fn get_state(State(state): State<AppState>) -> (StatusCode, Json<AppState>) {
-    (StatusCode::OK, Json(state))
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct MatchList {
+    open_matches: Vec<String>,
 }
 
-fn try_hit(side: Side, state: AppState) -> bool {
-    let state_side = state
-        .rally_state
+async fn open_matches(State(state): State<AppState>) -> (StatusCode, Json<MatchList>) {
+    let game_tables = state
+        .game_tables
         .read()
-        .expect("rally_state read lock was poisoned")
-        .side;
+        .expect("game_tables read lock was poisoned");
 
-    if side == state_side {
-        let mut rally_state = state
-            .rally_state
-            .write()
-            .expect("rally_state write lock was poisoned");
-
-        rally_state.side = (rally_state.side).flip();
-        rally_state.hit_count += 1;
-        rally_state.hit_timeout = Some(clock::now() + Duration::from_secs(BALL_AIR_TIME_SECONDS));
-        rally_state.first_hit_at.get_or_insert_with(clock::now);
-
-        true
-    } else {
-        state.lose_point(side);
-
-        false
-    }
-}
-
-fn get_hit_response(side: Side, state: AppState) -> (StatusCode, String) {
-    match try_hit(side, state) {
-        true => (StatusCode::OK, side.flip().to_string()),
-        false => (StatusCode::CONFLICT, "MISS".to_string()),
-    }
-}
-
-async fn ping(State(state): State<AppState>) -> (StatusCode, String) {
-    get_hit_response(Side::Ping, state)
-}
-async fn pong(State(state): State<AppState>) -> (StatusCode, String) {
-    get_hit_response(Side::Pong, state)
+    (
+        StatusCode::OK,
+        Json(MatchList {
+            open_matches: game_tables.keys().map(|uid| uid.to_string()).collect(),
+        }),
+    )
 }

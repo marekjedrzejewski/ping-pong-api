@@ -1,23 +1,23 @@
-use ping_pong_api::models::GameState;
+use ping_pong_api::models::game::GameState;
 use serde_json::Value;
-use testcontainers_modules::{postgres, testcontainers::runners::AsyncRunner};
 
 use crate::common::{
-    get_random_port, send_sigterm_and_wait_for_exit, start_server_and_wait_until_ready,
+    get_random_port, send_sigterm_and_wait_for_exit, setup_db, start_server_and_wait_until_ready,
 };
 
 #[tokio::test]
 async fn test_persistence() {
-    let container = postgres::Postgres::default().start().await.unwrap();
-    let db_port = container.get_host_port_ipv4(5432).await.unwrap();
-    let connection_string = &format!("postgres://postgres:postgres@127.0.0.1:{db_port}/postgres",);
+    let (connection_string, _db) = setup_db().await;
     let api_port = get_random_port();
     let api_endpoint = format!("http://127.0.0.1:{api_port}");
+    let match_endpoint = format!("{api_endpoint}/match/test");
+    let ping_endpoint = format!("{match_endpoint}/ping");
+    let pong_endpoint = format!("{match_endpoint}/pong");
 
-    let server_process = start_server_and_wait_until_ready(connection_string, api_port);
+    let server_process = start_server_and_wait_until_ready(&connection_string, api_port);
 
     // Server should start with clean db
-    let app_state: Value = reqwest::get(&api_endpoint)
+    let app_state: Value = reqwest::get(&match_endpoint)
         .await
         .unwrap()
         .json()
@@ -29,13 +29,13 @@ async fn test_persistence() {
 
     // Play a set that ends with pong missing
     for _ in 0..10 {
-        let _ = reqwest::get(format!("{}/ping", &api_endpoint)).await;
-        let _ = reqwest::get(format!("{}/pong", &api_endpoint)).await;
+        let _ = reqwest::get(&ping_endpoint).await;
+        let _ = reqwest::get(&pong_endpoint).await;
     }
-    let _ = reqwest::get(format!("{}/pong", &api_endpoint)).await;
+    let _ = reqwest::get(&pong_endpoint).await;
 
     // Get game state for comparison after restarting server
-    let app_state: Value = reqwest::get(&api_endpoint)
+    let app_state: Value = reqwest::get(&match_endpoint)
         .await
         .unwrap()
         .json()
@@ -46,10 +46,10 @@ async fn test_persistence() {
 
     // Restart server
     let _ = send_sigterm_and_wait_for_exit(server_process);
-    let server_process = start_server_and_wait_until_ready(connection_string, api_port);
+    let server_process = start_server_and_wait_until_ready(&connection_string, api_port);
 
     // ...and compare values with ones from the last run
-    let app_state: Value = reqwest::get(&api_endpoint)
+    let app_state: Value = reqwest::get(&match_endpoint)
         .await
         .unwrap()
         .json()

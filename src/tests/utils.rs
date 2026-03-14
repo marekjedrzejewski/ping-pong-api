@@ -1,9 +1,25 @@
-use axum_test::TestServer;
+use std::sync::{Arc, RwLock};
 
-use crate::{AppState, create_app_from_state};
+use axum_test::TestServer;
+use sqlx::PgPool;
+
+use crate::{
+    AppState, create_app_from_state,
+    database::{TableDbSyncHandle, TableUid},
+    models::game::{GameState, TableState},
+};
+
+pub const MATCH_ID: &str = "test";
+pub const MATCH_ENDPOINT: &str = "/match/test";
+pub const PING_ENDPOINT: &str = "/match/test/ping";
+pub const PONG_ENDPOINT: &str = "/match/test/pong";
 
 pub fn setup_test_server() -> TestServer {
-    let state = AppState::default();
+    setup_test_server_with_matches(&[MATCH_ID])
+}
+
+pub fn setup_test_server_with_matches(ids: &[&str]) -> TestServer {
+    let state = init_test_state_with_matches(ids);
     let app = create_app_from_state(state);
     TestServer::builder()
         .mock_transport()
@@ -59,5 +75,28 @@ pub mod mock_clock {
 
     pub fn set_time(time: Timestamp) {
         TEST_CLOCK.with(|clock| clock.set_time(time));
+    }
+}
+
+fn init_test_state_with_matches(ids: &[&str]) -> AppState {
+    let dummy_pool =
+        PgPool::connect_lazy("postgres://localhost/unused").expect("Failed to connect to database");
+    let tables = ids
+        .iter()
+        .enumerate()
+        .map(|(i, &id)| {
+            (
+                TableUid::parse(id).unwrap(),
+                TableState::new(
+                    GameState::default(),
+                    TableDbSyncHandle::new(i as i64, &dummy_pool),
+                ),
+            )
+        })
+        .collect();
+
+    AppState {
+        game_tables: Arc::new(RwLock::new(tables)),
+        db_pool: dummy_pool,
     }
 }

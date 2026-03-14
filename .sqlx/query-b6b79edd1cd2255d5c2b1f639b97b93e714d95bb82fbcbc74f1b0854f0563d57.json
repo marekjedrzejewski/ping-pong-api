@@ -1,0 +1,32 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT uid, game_state_id, data_dump as game_state\n     FROM match JOIN game_state ON match.game_state_id = game_state.id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "uid",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 1,
+        "name": "game_state_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "game_state",
+        "type_info": "Jsonb"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "b6b79edd1cd2255d5c2b1f639b97b93e714d95bb82fbcbc74f1b0854f0563d57"
+}
