@@ -23,5 +23,5 @@ tower-http = { version = "0.6.8", features = ["cors"] }
 [dev-dependencies]
 axum-test = "18.7.0"
 reqwest = { version = "0.12.28", features = ["json"] }
-testcontainers-modules = { version = "0.13.0", features = ["postgres"] }
+testcontainers-modules = { version = "0.15.0", features = ["postgres"] }
 libc = "0.2.183"
