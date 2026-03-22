@@ -9,6 +9,7 @@ use axum::{
     routing::get,
 };
 use log::error;
+use tokio::time::sleep;
 
 use crate::{
     BALL_AIR_TIME_SECONDS, clock,
@@ -89,12 +90,22 @@ async fn try_hit(side: Side, state: TableState) -> bool {
             .write()
             .expect("rally_state write lock was poisoned");
 
+        if let Some(hit_timeout_task) = rally_state.hit_timeout_task.take() {
+            hit_timeout_task.abort();
+        }
+
         if side == rally_state.side {
-            rally_state.side = (rally_state.side).flip();
+            rally_state.side = side.flip();
             rally_state.hit_count += 1;
             rally_state.hit_timeout =
                 Some(clock::now() + Duration::from_secs(BALL_AIR_TIME_SECONDS));
             rally_state.first_hit_at.get_or_insert_with(clock::now);
+
+            let state_clone = state.clone();
+            rally_state.hit_timeout_task = Some(tokio::spawn(async move {
+                sleep(Duration::from_secs(BALL_AIR_TIME_SECONDS)).await;
+                state_clone.lose_point(side.flip()).await;
+            }));
 
             true
         } else {

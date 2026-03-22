@@ -4,6 +4,7 @@ use std::sync::{Arc, RwLock};
 use jiff::{SignedDuration, Timestamp};
 use log::error;
 use serde::{Deserialize, Serialize};
+use tokio::task::JoinHandle;
 
 use crate::clock;
 use crate::database::TableDbSyncHandle;
@@ -49,7 +50,7 @@ impl Score {
     }
 }
 
-#[derive(Clone, Serialize, Default)]
+#[derive(Serialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct RallyState {
     pub side: Side,
@@ -58,6 +59,8 @@ pub struct RallyState {
     #[serde(rename = "serveTimestamp")]
     pub first_hit_at: Option<Timestamp>,
     pub hit_count: usize,
+    #[serde(skip)]
+    pub hit_timeout_task: Option<JoinHandle<()>>,
 }
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]

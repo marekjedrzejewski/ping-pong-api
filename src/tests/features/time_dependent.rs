@@ -11,6 +11,8 @@ use crate::tests::utils::{
 async fn advance_time(duration: Duration) {
     tokio::time::pause();
     mock_clock::advance(duration);
+    // yield to actually start processing tasks
+    tokio::task::yield_now().await;
     tokio::time::advance(duration).await;
     tokio::time::resume();
     // give some time for the game loop to process the time advancement
