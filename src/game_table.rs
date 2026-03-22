@@ -17,7 +17,6 @@ use crate::{
         application::AppState,
         game::{Side, TableState},
     },
-    run_game_events,
 };
 
 pub fn match_routes(state: AppState) -> Router<AppState> {
@@ -62,8 +61,6 @@ async fn get_or_create_match(
                         .write()
                         .expect("game_tables write lock was poisoned")
                         .insert(uid, table_state.clone());
-
-                    tokio::spawn(run_game_events(table_state.clone()));
 
                     table_state
                 }
