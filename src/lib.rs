@@ -49,7 +49,7 @@ pub fn create_app_from_state(state: AppState) -> Router {
 
     Router::new()
         .route("/", get(open_matches))
-        .nest("/match/{id}", match_routes(state.clone()))
+        .nest("/matches/{id}", match_routes(state.clone()))
         .with_state(state)
         .layer(cors)
 }

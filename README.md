@@ -10,8 +10,8 @@ but beware, everyone, including your mom, can grab any paddle and swing it aroun
 
 ## Endpoints
 - `/` has list of open matches
-- `/match/{id}` - has match status
-- `/match/{id}/ping` lets you swing paddle on one side
-- `/match/{id}/pong` lets you swing paddle on the other side
+- `/matches/{id}` - has match status
+- `/matches/{id}/ping` lets you swing paddle on one side
+- `/matches/{id}/pong` lets you swing paddle on the other side
 
 Everything is using `GET` so you can just put it in your browser address.
