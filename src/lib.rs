@@ -48,8 +48,8 @@ pub fn create_app_from_state(state: AppState) -> Router {
         .allow_headers(Any);
 
     Router::new()
-        .route("/", get(open_matches))
-        .nest("/match/{id}", match_routes(state.clone()))
+        .route("/matches", get(open_matches))
+        .nest("/matches/{id}", match_routes(state.clone()))
         .with_state(state)
         .layer(cors)
 }

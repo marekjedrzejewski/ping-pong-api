@@ -9,6 +9,10 @@ use ping_pong_api::create_app;
 
 use ping_pong_api::database::init_db;
 
+mod api_docs;
+
+use api_docs::create_api_docs;
+
 #[tokio::main]
 async fn main() {
     env_logger::init();
@@ -21,10 +25,11 @@ async fn main() {
     match pool {
         Ok(p) => {
             let app = create_app(p).await;
+            let api_docs = create_api_docs();
             let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{server_port}"))
                 .await
                 .unwrap();
-            axum::serve(listener, app)
+            axum::serve(listener, app.merge(api_docs))
                 .with_graceful_shutdown(shutdown_signal())
                 .await
                 .unwrap();

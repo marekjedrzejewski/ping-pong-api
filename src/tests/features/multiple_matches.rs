@@ -2,8 +2,8 @@ use serde_json::json;
 
 use crate::tests::utils::{setup_test_server, setup_test_server_with_matches};
 
-pub const MATCH_A: &str = "/match/a";
-pub const MATCH_B: &str = "/match/b";
+pub const MATCH_A: &str = "/matches/a";
+pub const MATCH_B: &str = "/matches/b";
 pub const MATCH_IDS: &[&str] = &["a", "b"];
 
 #[tokio::test]
@@ -39,7 +39,7 @@ async fn matches_are_isolated() {
 async fn invalid_match_id_returns_bad_request() {
     let server = setup_test_server();
 
-    let response = server.get("/match/INVALID").await;
+    let response = server.get("/matches/INVALID").await;
     response.assert_status_bad_request();
     response.assert_text_contains(
         "at most 6 characters long and contain only lowercase letters and digits",

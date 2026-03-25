@@ -1,0 +1,208 @@
+openapi: 3.1.0
+info:
+  title: Ping Pong API
+  version: 0.3.0
+  description: View and play Ping Pong matches. Designed to be playable by simply opening the match page in a browser.
+
+tags:
+  - name: Matches
+    description: >
+      View and play ping pong matches.
+      For now non-existing matches are created on access, so get it while you can!
+
+paths:
+  /:
+    get:
+      tags: [Matches]
+      summary: List open matches
+      responses:
+        "200":
+          description: List of open match IDs
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [openMatches]
+                properties:
+                  openMatches:
+                    type: array
+                    items:
+                      type: string
+              examples:
+                example:
+                  value:
+                    openMatches: ["match1", "match2"]
+
+  /matches/{matchId}:
+    get:
+      tags: [Matches]
+      summary: Get match details
+      parameters:
+        - $ref: "#/components/parameters/matchId"
+      responses:
+        "200":
+          description: Match details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MatchDetails"
+        "400":
+          $ref: "#/components/responses/InvalidMatchId"
+
+  /matches/{matchId}/ping:
+    get:
+      tags: [Matches]
+      summary: Hit from the ping side
+      description: >
+        You might wonder why it's GET and response is plaintext.
+        This is intentional - to allow playing the game by simply opening the page in the browser.
+      parameters:
+        - $ref: "#/components/parameters/matchId"
+      responses:
+        "200":
+          description: Hit registered.
+          content:
+            text/plain:
+              schema:
+                type: string
+                const: pong
+        "409":
+          $ref: "#/components/responses/HitMiss"
+        "400":
+          $ref: "#/components/responses/InvalidMatchId"
+
+  /matches/{matchId}/pong:
+    get:
+      tags: [Matches]
+      summary: Hit from the pong side
+      description: >
+        You might wonder why it's GET and response is plaintext.
+        This is intentional - to allow playing the game by simply opening the page in the browser.
+      parameters:
+        - $ref: "#/components/parameters/matchId"
+      responses:
+        "200":
+          description: Hit registered.
+          content:
+            text/plain:
+              schema:
+                type: string
+                const: ping
+        "409":
+          $ref: "#/components/responses/HitMiss"
+        "400":
+          $ref: "#/components/responses/InvalidMatchId"
+
+components:
+  parameters:
+    matchId:
+      in: path
+      name: matchId
+      required: true
+      description: Unique identifier of the match. Lowercase letters and digits only, max length 6.
+      schema:
+        type: string
+        maxLength: 6
+        pattern: "^[a-z0-9]+$"
+        examples: ["match1"]
+
+  responses:
+    HitMiss:
+      description: Miss — hit attempted from the wrong side.
+      content:
+        text/plain:
+          schema:
+            type: string
+            const: MISS
+    InvalidMatchId:
+      description: Match ID format invalid.
+      content:
+        text/plain:
+          schema:
+            type: string
+            const: "Invalid Table UID format. Must be at most 6 characters long and contain only lowercase letters and digits."
+  schemas:
+    Side:
+      type: string
+      description: Which side of the table is currently serving or hitting.
+      enum: [ping, pong]
+
+    Score:
+      type: object
+      required: [ping, pong]
+      properties:
+        ping:
+          type: integer
+          minimum: 0
+        pong:
+          type: integer
+          minimum: 0
+
+    LongestRally:
+      type: object
+      description: Longest (by hit count) rally in the match. Duration included, but not a qualifying factor.
+      required: [hitCount, duration]
+      properties:
+        hitCount:
+          type: integer
+          minimum: 0
+        duration:
+          type: string
+          format: duration
+
+    RallyState:
+      type: object
+      description: Current state of the ongoing rally.
+      required: [side, hitCount]
+      properties:
+        side:
+          $ref: "#/components/schemas/Side"
+        hitTimeoutTimestamp:
+          type: [string, "null"]
+          format: date-time
+          description: Time at which point will be lost if hit is not returned. Null if rally has not started yet.
+        serveTimestamp:
+          type: [string, "null"]
+          format: date-time
+          description: Time at which first hit of the rally was made. Null if rally has not started yet.
+        hitCount:
+          type: integer
+          description: Number of hits from both sides since the start of the rally.
+
+    GameState:
+      type: object
+      description: High-level game state, excluding current rally details.
+      required: [server, score]
+      properties:
+        server:
+          $ref: "#/components/schemas/Side"
+        score:
+          $ref: "#/components/schemas/Score"
+        longestRally:
+          oneOf:
+            - $ref: "#/components/schemas/LongestRally"
+            - type: "null"
+
+    MatchDetails:
+      type: object
+      description: Complete details about a match.
+      required: [rallyState, gameState]
+      properties:
+        rallyState:
+          $ref: "#/components/schemas/RallyState"
+        gameState:
+          $ref: "#/components/schemas/GameState"
+      examples:
+        - rallyState:
+            side: ping
+            hitTimeoutTimestamp: "2026-03-25T10:45:03.73229592Z"
+            serveTimestamp: "2026-03-25T10:44:18.73230072Z"
+            hitCount: 5
+          gameState:
+            server: pong
+            score:
+              ping: 3
+              pong: 4
+            longestRally:
+              hitCount: 10
+              duration: "PT1M30S"

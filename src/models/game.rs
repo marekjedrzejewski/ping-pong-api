@@ -65,7 +65,7 @@ pub struct RallyState {
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
 #[serde(rename_all = "camelCase")]
-pub struct RallyStatistics {
+pub struct LongestRally {
     hit_count: usize,
     duration: SignedDuration,
 }
@@ -75,7 +75,7 @@ pub struct RallyStatistics {
 pub struct GameState {
     pub server: Side,
     pub score: Score,
-    pub longest_rally: Option<RallyStatistics>,
+    pub longest_rally: Option<LongestRally>,
 }
 
 /// Updates longest rally - hit count based.
@@ -90,7 +90,7 @@ fn update_statistics(
         let current_rally_time = clock::now().duration_since(start);
         match &mut game_state.longest_rally {
             None => {
-                game_state.longest_rally = Some(RallyStatistics {
+                game_state.longest_rally = Some(LongestRally {
                     hit_count: rally_state.hit_count,
                     duration: current_rally_time,
                 })
