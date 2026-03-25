@@ -9,7 +9,8 @@ but beware, everyone, including your mom, can grab any paddle and swing it aroun
 ...and you probably will have to wait for the instance to spin up.
 
 ## Endpoints
-- `/` has list of open matches
+- `/` will redirect you to `/api-docs`
+- `/matches` has list of open matches
 - `/matches/{id}` - has match status
 - `/matches/{id}/ping` lets you swing paddle on one side
 - `/matches/{id}/pong` lets you swing paddle on the other side

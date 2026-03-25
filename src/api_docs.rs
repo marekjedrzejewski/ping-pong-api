@@ -1,7 +1,12 @@
-use axum::{Router, response::Html, routing::get};
+use axum::{
+    Router,
+    response::{Html, Redirect},
+    routing::get,
+};
 
 pub fn create_api_docs() -> Router {
     Router::new()
+        .route("/", get(|| async { Redirect::permanent("/api-docs") }))
         .route("/api-docs", get(scalar_ui))
         .route("/api-docs/openapi.yaml", get(openapi_spec))
 }

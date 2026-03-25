@@ -6,7 +6,9 @@ info:
 
 tags:
   - name: Matches
-    description: View and play ping pong matches.
+    description: >
+      View and play ping pong matches.
+      For now non-existing matches are created on access, so get it while you can!
 
 paths:
   /:
