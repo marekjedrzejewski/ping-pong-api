@@ -36,3 +36,36 @@ async fn scalar_ui() -> Html<&'static str> {
     "#,
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::create_api_docs;
+    use axum::http::StatusCode;
+    use axum_test::TestServer;
+
+    const API_DOCS_PATH: &str = "/api-docs";
+    fn setup_server() -> TestServer {
+        TestServer::builder().build(create_api_docs()).unwrap()
+    }
+
+    #[tokio::test]
+    async fn api_docs_served_from_root() {
+        let server = setup_server();
+        let root_response = server.get("/").await;
+        root_response.assert_status(StatusCode::PERMANENT_REDIRECT);
+        root_response.assert_header("location", API_DOCS_PATH);
+
+        let docs_response = server.get(API_DOCS_PATH).await;
+        docs_response.assert_status_ok();
+        docs_response.assert_text_contains("API Docs");
+    }
+
+    // can't put all in one test. Content js-generated - transparent to tests.
+    #[tokio::test]
+    async fn openapi_spec_served() {
+        let server = setup_server();
+        let response = server.get("/api-docs/openapi.yaml").await;
+        response.assert_status_ok();
+        response.assert_text_contains("title: Ping Pong API");
+    }
+}
