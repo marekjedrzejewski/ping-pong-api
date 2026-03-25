@@ -44,6 +44,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MatchDetails"
+        "400":
+          $ref: "#/components/responses/InvalidMatchId"
 
   /matches/{matchId}/ping:
     get:
@@ -61,9 +63,11 @@ paths:
             text/plain:
               schema:
                 type: string
-                enum: [pong]
+                const: pong
         "409":
           $ref: "#/components/responses/HitMiss"
+        "400":
+          $ref: "#/components/responses/InvalidMatchId"
 
   /matches/{matchId}/pong:
     get:
@@ -81,9 +85,11 @@ paths:
             text/plain:
               schema:
                 type: string
-                enum: [ping]
+                const: ping
         "409":
           $ref: "#/components/responses/HitMiss"
+        "400":
+          $ref: "#/components/responses/InvalidMatchId"
 
 components:
   parameters:
@@ -91,9 +97,11 @@ components:
       in: path
       name: matchId
       required: true
-      description: Unique identifier of the match.
+      description: Unique identifier of the match. Lowercase letters and digits only, max length 6.
       schema:
         type: string
+        maxLength: 6
+        pattern: "^[a-z0-9]+$"
         examples: ["match1"]
 
   responses:
@@ -103,7 +111,14 @@ components:
         text/plain:
           schema:
             type: string
-            enum: [MISS]
+            const: MISS
+    InvalidMatchId:
+      description: Match ID format invalid.
+      content:
+        text/plain:
+          schema:
+            type: string
+            const: "Invalid Table UID format. Must be at most 6 characters long and contain only lowercase letters and digits."
   schemas:
     Side:
       type: string
@@ -116,8 +131,10 @@ components:
       properties:
         ping:
           type: integer
+          minimum: 0
         pong:
           type: integer
+          minimum: 0
 
     LongestRally:
       type: object
