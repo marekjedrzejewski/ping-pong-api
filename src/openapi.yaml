@@ -1,11 +1,17 @@
 openapi: 3.1.0
 info:
   title: Ping Pong API
-  version: 0.1.0
+  version: 0.3.0
+  description: View and play Ping Pong matches. Designed to be playable by simply opening the match page in a browser.
+
+tags:
+  - name: Matches
+    description: View and play ping pong matches.
 
 paths:
   /:
     get:
+      tags: [Matches]
       summary: List open matches
       responses:
         "200":
@@ -20,9 +26,14 @@ paths:
                     type: array
                     items:
                       type: string
+              examples:
+                example:
+                  value:
+                    openMatches: ["match1", "match2"]
 
   /matches/{matchId}:
     get:
+      tags: [Matches]
       summary: Get match details
       parameters:
         - $ref: "#/components/parameters/matchId"
@@ -36,6 +47,7 @@ paths:
 
   /matches/{matchId}/ping:
     get:
+      tags: [Matches]
       summary: Hit from the ping side
       description: >
         You might wonder why it's GET and response is plaintext.
@@ -55,6 +67,7 @@ paths:
 
   /matches/{matchId}/pong:
     get:
+      tags: [Matches]
       summary: Hit from the pong side
       description: >
         You might wonder why it's GET and response is plaintext.
@@ -81,7 +94,7 @@ components:
       description: Unique identifier of the match.
       schema:
         type: string
-        example: "match1"
+        examples: ["match1"]
 
   responses:
     HitMiss:
@@ -159,3 +172,17 @@ components:
           $ref: "#/components/schemas/RallyState"
         gameState:
           $ref: "#/components/schemas/GameState"
+      examples:
+        - rallyState:
+            side: ping
+            hitTimeoutTimestamp: "2026-03-25T10:45:03.73229592Z"
+            serveTimestamp: "2026-03-25T10:44:18.73230072Z"
+            hitCount: 5
+          gameState:
+            server: pong
+            score:
+              ping: 3
+              pong: 4
+            longestRally:
+              hitCount: 10
+              duration: "PT1M30S"
