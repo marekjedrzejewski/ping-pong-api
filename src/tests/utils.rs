@@ -10,9 +10,9 @@ use crate::{
 };
 
 pub const MATCH_ID: &str = "test";
-pub const MATCH_ENDPOINT: &str = "/match/test";
-pub const PING_ENDPOINT: &str = "/match/test/ping";
-pub const PONG_ENDPOINT: &str = "/match/test/pong";
+pub const MATCH_ENDPOINT: &str = "/matches/test";
+pub const PING_ENDPOINT: &str = "/matches/test/ping";
+pub const PONG_ENDPOINT: &str = "/matches/test/pong";
 
 pub fn setup_test_server() -> TestServer {
     setup_test_server_with_matches(&[MATCH_ID])

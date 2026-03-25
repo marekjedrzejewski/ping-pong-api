@@ -10,7 +10,7 @@ async fn test_multi_match() {
     let api_port = get_random_port();
     let api_endpoint = format!("http://127.0.0.1:{api_port}");
     let get_match_list = || async {
-        reqwest::get(&format!("{api_endpoint}/"))
+        reqwest::get(&format!("{api_endpoint}/matches"))
             .await
             .unwrap()
             .json()
@@ -25,7 +25,7 @@ async fn test_multi_match() {
     assert!(match_list["openMatches"].as_array().unwrap().is_empty());
 
     // 2. Create by access: GET /match/m1 and then verify / contains ["m1"]
-    let _ = reqwest::get(&format!("{api_endpoint}/match/m1"))
+    let _ = reqwest::get(&format!("{api_endpoint}/matches/m1"))
         .await
         .unwrap();
     let match_list: Value = get_match_list().await;
@@ -34,7 +34,7 @@ async fn test_multi_match() {
     assert_eq!(open_matches[0], "m1");
 
     // 3. Add another: GET /match/m2 and verify / contains both
-    let _ = reqwest::get(&format!("{api_endpoint}/match/m2"))
+    let _ = reqwest::get(&format!("{api_endpoint}/matches/m2"))
         .await
         .unwrap();
     let match_list: Value = get_match_list().await;
@@ -45,14 +45,14 @@ async fn test_multi_match() {
     assert!(ids.contains(&"m2"));
 
     // 4. No duplicates: GET /match/m1 again
-    let _ = reqwest::get(&format!("{api_endpoint}/match/m1"))
+    let _ = reqwest::get(&format!("{api_endpoint}/matches/m1"))
         .await
         .unwrap();
     let match_list: Value = get_match_list().await;
     assert_eq!(match_list["openMatches"].as_array().unwrap().len(), 2);
 
     // 5. Invalid ID check
-    let resp = reqwest::get(&format!("{api_endpoint}/match/INVALID_ID"))
+    let resp = reqwest::get(&format!("{api_endpoint}/matches/INVALID_ID"))
         .await
         .unwrap();
     assert_eq!(resp.status(), reqwest::StatusCode::BAD_REQUEST);

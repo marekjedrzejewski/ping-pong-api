@@ -10,7 +10,7 @@ async fn test_persistence() {
     let (connection_string, _db) = setup_db().await;
     let api_port = get_random_port();
     let api_endpoint = format!("http://127.0.0.1:{api_port}");
-    let match_endpoint = format!("{api_endpoint}/match/test");
+    let match_endpoint = format!("{api_endpoint}/matches/test");
     let ping_endpoint = format!("{match_endpoint}/ping");
     let pong_endpoint = format!("{match_endpoint}/pong");
 
