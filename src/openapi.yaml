@@ -11,7 +11,7 @@ tags:
       For now non-existing matches are created on access, so get it while you can!
 
 paths:
-  /:
+  /matches:
     get:
       tags: [Matches]
       summary: List open matches
