@@ -45,7 +45,7 @@ mod tests {
 
     const API_DOCS_PATH: &str = "/api-docs";
     fn setup_server() -> TestServer {
-        TestServer::builder().build(create_api_docs()).unwrap()
+        TestServer::builder().build(create_api_docs())
     }
 
     #[tokio::test]
