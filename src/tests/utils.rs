@@ -21,10 +21,7 @@ pub fn setup_test_server() -> TestServer {
 pub fn setup_test_server_with_matches(ids: &[&str]) -> TestServer {
     let state = init_test_state_with_matches(ids);
     let app = create_app_from_state(state);
-    TestServer::builder()
-        .mock_transport()
-        .build(app)
-        .expect("Cannot create server")
+    TestServer::builder().mock_transport().build(app)
 }
 
 pub mod mock_clock {
