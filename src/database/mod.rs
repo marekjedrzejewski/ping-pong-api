@@ -64,7 +64,7 @@ pub async fn get_game_tables(pool: &PgPool) -> Result<GameTables, DbError> {
         Ok((
             // If database has invalid UIDs we want to fail fast and fix
             TableUid::parse(&row.uid)
-                .unwrap_or_else(|_| panic!("Invalid Table UID in database: {}", &row.uid)),
+                .unwrap_or_else(|_| panic!("Invalid Table UID in database: {}", row.uid)),
             table_state,
         ))
     })
